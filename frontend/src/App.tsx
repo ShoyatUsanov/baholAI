@@ -36,6 +36,7 @@ import Profile from './pages/shared/Profile';
 
 // Teacher
 import TeacherDashboard from './pages/teacher/Dashboard';
+import TeacherStatistics from './pages/teacher/Statistics';
 import TeacherAssignments from './pages/teacher/Assignments';
 import CreateAssignment from './pages/teacher/CreateAssignment';
 import Grading from './pages/teacher/Grading';
@@ -105,6 +106,7 @@ export default function App() {
 
       {/* Teacher */}
       <Route path="/teacher" element={g(['teacher'], <TeacherDashboard />)} />
+      <Route path="/teacher/statistics" element={g(['teacher'], <TeacherStatistics />)} />
       <Route path="/teacher/assignments" element={g(['teacher'], <TeacherAssignments />)} />
       <Route path="/teacher/create" element={g(['teacher'], <CreateAssignment />)} />
       <Route path="/teacher/grading" element={g(['teacher'], <Grading />)} />

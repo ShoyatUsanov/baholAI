@@ -23,3 +23,15 @@ async def subject(subject_id: int, db: AsyncSession = Depends(get_db)) -> dict:
 @router.get("/overview")
 async def overview(db: AsyncSession = Depends(get_db)) -> dict:
     return await svc.overview(db)
+
+
+@router.get("/assignments")
+async def assignments(teacher_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+    """Teacher view: completion + average score per created assignment."""
+    return await svc.assignment_progress(db, teacher_id)
+
+
+@router.get("/students")
+async def students(subject_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+    """Teacher view: roster of students with their engagement in the subject."""
+    return await svc.teacher_students(db, subject_id)

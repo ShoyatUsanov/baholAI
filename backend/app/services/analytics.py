@@ -142,3 +142,156 @@ async def overview(db: AsyncSession) -> dict:
         "ai_graded_by_ollama": ollama,
         "ai_graded_by_fallback": len(grades) - ollama,
     }
+
+
+async def assignment_progress(db: AsyncSession, teacher_id: int) -> dict:
+    """Per-assignment completion for a teacher: who did it, who hasn't, avg score.
+
+    An assignment with an empty ``target_student_ids`` is addressed to every
+    student (same rule as the assignment list), so 'assigned' falls back to the
+    whole student body. This powers the "har bir vazifa qilinganini ko'rish" view.
+    """
+    students = (await db.execute(select(User.id, User.name).where(User.role == "student"))).all()
+    all_ids = [sid for sid, _ in students]
+    name_by_id = {sid: name for sid, name in students}
+
+    assignments = (
+        await db.execute(
+            select(Assignment)
+            .where(Assignment.teacher_id == teacher_id)
+            .order_by(Assignment.created_at.desc())
+        )
+    ).scalars().all()
+
+    items: list[dict] = []
+    for a in assignments:
+        targets = a.target_student_ids or all_ids
+        sub_rows = (
+            await db.execute(
+                select(Submission.student_id, Grade.total_score, Grade.max_score, Submission.submitted_at)
+                .join(Grade, Grade.submission_id == Submission.id, isouter=True)
+                .where(Submission.assignment_id == a.id)
+            )
+        ).all()
+        done_ids: set[int] = set()
+        score = mx = 0.0
+        last: str | None = None
+        for sid, s_score, s_max, ts in sub_rows:
+            done_ids.add(sid)
+            score += s_score or 0.0
+            mx += s_max or 0.0
+            iso = ts.isoformat()
+            if last is None or iso > last:
+                last = iso
+        done = [sid for sid in targets if sid in done_ids]
+        pending = [sid for sid in targets if sid not in done_ids]
+        items.append({
+            "id": a.id,
+            "title": a.title,
+            "method": a.method,
+            "questions": len(a.questions or []),
+            "created_at": a.created_at.isoformat(),
+            "due_at": a.due_at.isoformat() if a.due_at else None,
+            "assigned": len(targets),
+            "submitted": len(done),
+            "pending": len(pending),
+            "completion": round(len(done) / len(targets) * 100) if targets else 0,
+            "avg_percent": _pct(score, mx),
+            "last_submission": last,
+            "done_students": [{"id": sid, "name": name_by_id.get(sid, f"#{sid}")} for sid in done],
+            "pending_students": [{"id": sid, "name": name_by_id.get(sid, f"#{sid}")} for sid in pending],
+        })
+
+    total_assigned = sum(i["assigned"] for i in items)
+    total_submitted = sum(i["submitted"] for i in items)
+    return {
+        "teacher_id": teacher_id,
+        "assignments": items,
+        "totals": {
+            "assignments": len(items),
+            "assigned": total_assigned,
+            "submitted": total_submitted,
+            "completion": round(total_submitted / total_assigned * 100) if total_assigned else 0,
+        },
+    }
+
+
+async def teacher_students(db: AsyncSession, subject_id: int) -> dict:
+    """Roster of every student with their engagement in one subject.
+
+    Includes students who have not started yet (engaged=False) so the teacher
+    sees the whole class, not just those who submitted.
+    """
+    students = (
+        await db.execute(
+            select(User.id, User.name, User.username, User.level, User.xp)
+            .where(User.role == "student")
+            .order_by(User.name)
+        )
+    ).all()
+
+    total_assignments = (
+        await db.scalar(
+            select(func.count()).select_from(Assignment).where(Assignment.subject_id == subject_id)
+        )
+    ) or 0
+
+    rows = (
+        await db.execute(
+            select(
+                Submission.student_id,
+                Submission.assignment_id,
+                Grade.total_score,
+                Grade.max_score,
+                Submission.submitted_at,
+            )
+            .join(Assignment, Submission.assignment_id == Assignment.id)
+            .join(Grade, Grade.submission_id == Submission.id, isouter=True)
+            .where(Assignment.subject_id == subject_id)
+        )
+    ).all()
+
+    agg: dict[int, dict] = defaultdict(
+        lambda: {"score": 0.0, "max": 0.0, "attempts": 0, "assignments": set(), "last": None}
+    )
+    for sid, aid, score, mx, ts in rows:
+        s = agg[sid]
+        s["attempts"] += 1
+        s["assignments"].add(aid)
+        s["score"] += score or 0.0
+        s["max"] += mx or 0.0
+        iso = ts.isoformat()
+        if s["last"] is None or iso > s["last"]:
+            s["last"] = iso
+
+    fb = (
+        await db.execute(
+            select(Feedback.student_id, Feedback.rating).where(Feedback.subject_id == subject_id)
+        )
+    ).all()
+    fb_agg: dict[int, list[int]] = defaultdict(list)
+    for sid, rating in fb:
+        fb_agg[sid].append(rating)
+
+    roster: list[dict] = []
+    for sid, name, username, level, xp in students:
+        s = agg.get(sid)
+        ratings = fb_agg.get(sid, [])
+        completed = len(s["assignments"]) if s else 0
+        roster.append({
+            "student_id": sid,
+            "name": name,
+            "username": username,
+            "level": level,
+            "xp": xp,
+            "attempts": s["attempts"] if s else 0,
+            "percent": _pct(s["score"], s["max"]) if s else 0,
+            "completed_assignments": completed,
+            "total_assignments": total_assignments,
+            "completion": round(completed / total_assignments * 100) if total_assignments else 0,
+            "last_activity": s["last"] if s else None,
+            "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
+            "engaged": bool(s),
+        })
+    roster.sort(key=lambda r: (r["engaged"], r["percent"], r["completion"]), reverse=True)
+    return {"subject_id": subject_id, "total_assignments": total_assignments, "students": roster}

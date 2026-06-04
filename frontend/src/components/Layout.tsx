@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home, BookOpen, Layers, ClipboardList, BarChart3, MessageSquare, User, CalendarDays,
   CalendarCheck, Wallet, TrendingUp, Shield, Building2, Users, KeySquare, Megaphone,
-  PenLine, FolderKanban, Menu, Moon, Sun, LogOut, Bell, GraduationCap, BookMarked,
+  PenLine, FolderKanban, Menu, Moon, Sun, LogOut, Bell, GraduationCap, BookMarked, PieChart,
 } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth';
@@ -30,6 +30,7 @@ const NAV: Record<Role, Item[]> = {
   ],
   teacher: [
     { to: '/teacher', label: 'Boshqaruv', icon: BarChart3, end: true },
+    { to: '/teacher/statistics', label: 'Statistika', icon: PieChart },
     { to: '/teacher/content', label: "To'plamlar", icon: FolderKanban },
     { to: '/teacher/decks', label: 'Flashcards', icon: Layers },
     { to: '/teacher/tests', label: 'Testlar', icon: ClipboardList },

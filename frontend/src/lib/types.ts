@@ -261,3 +261,53 @@ export interface StudentAnalytics {
   }[];
   recent: { submission_id: number; assignment: string; subject: string; percent: number; submitted_at: string }[];
 }
+
+export interface StudentRef {
+  id: number;
+  name: string;
+}
+
+export interface AssignmentProgress {
+  id: number;
+  title: string;
+  method: string;
+  questions: number;
+  created_at: string;
+  due_at: string | null;
+  assigned: number;
+  submitted: number;
+  pending: number;
+  completion: number;
+  avg_percent: number;
+  last_submission: string | null;
+  done_students: StudentRef[];
+  pending_students: StudentRef[];
+}
+
+export interface AssignmentProgressResponse {
+  teacher_id: number;
+  assignments: AssignmentProgress[];
+  totals: { assignments: number; assigned: number; submitted: number; completion: number };
+}
+
+export interface TeacherStudentRow {
+  student_id: number;
+  name: string;
+  username: string;
+  level: string | null;
+  xp: number;
+  attempts: number;
+  percent: number;
+  completed_assignments: number;
+  total_assignments: number;
+  completion: number;
+  last_activity: string | null;
+  avg_rating: number | null;
+  engaged: boolean;
+}
+
+export interface TeacherStudentsResponse {
+  subject_id: number;
+  total_assignments: number;
+  students: TeacherStudentRow[];
+}
