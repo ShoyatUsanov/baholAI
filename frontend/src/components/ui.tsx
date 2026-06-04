@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+
+import type { RubricCriterion } from '@/lib/types';
 
 export function Card({
   children,
@@ -73,4 +76,78 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function Spinner() {
   return <div className="text-slate-400 dark:text-slate-500 p-8 text-center">Yuklanmoqda…</div>;
+}
+
+// Confidence in the AI grade. High → green, low (needs review) → amber.
+export function ConfidenceBadge({ value }: { value: number }) {
+  const high = value >= 70;
+  return (
+    <span
+      className={`badge ${
+        high
+          ? 'bg-accent-100 text-accent-700 dark:bg-accent-900/40 dark:text-accent-200'
+          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200'
+      }`}
+      title={high ? 'AI bahosiga ishonch yuqori' : 'Ishonch past — ko\'rib chiqish tavsiya etiladi'}
+    >
+      {high ? '✓' : '⚠️'} Ishonch {value}%
+    </span>
+  );
+}
+
+function rubricColor(pct: number): string {
+  if (pct >= 75) return '#16a34a';
+  if (pct >= 50) return '#d97706';
+  return '#dc2626';
+}
+
+// Explainable per-criterion breakdown: each row shows points + a "Nega bu ball?"
+// toggle revealing the exact evidence and a suggestion.
+export function RubricBreakdown({ items }: { items: RubricCriterion[] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {items.map((c, i) => (
+        <RubricRow key={i} c={c} />
+      ))}
+    </div>
+  );
+}
+
+function RubricRow({ c }: { c: RubricCriterion }) {
+  const [open, setOpen] = useState(false);
+  const pct = c.max_points ? Math.round((c.points_given / c.max_points) * 100) : 0;
+  return (
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium flex-1">{c.criterion}</span>
+        <span className="text-sm font-semibold">{c.points_given}/{c.max_points}</span>
+      </div>
+      <div className="flex items-center gap-2 mt-1.5">
+        <div className="flex-1">
+          <PercentBar percent={pct} color={rubricColor(pct)} />
+        </div>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap"
+        >
+          {open ? 'Yashirish' : 'Nega bu ball?'}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 text-xs space-y-1">
+          {c.evidence ? (
+            <div className="text-slate-600 dark:text-slate-300">
+              📌 Dalil: <i>"{c.evidence}"</i>
+            </div>
+          ) : (
+            <div className="text-slate-400">📌 Mos dalil topilmadi.</div>
+          )}
+          {c.suggestion && (
+            <div className="text-violet-700 dark:text-violet-300">💡 Tavsiya: {c.suggestion}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

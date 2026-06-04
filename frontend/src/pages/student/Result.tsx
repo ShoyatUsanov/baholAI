@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { AiBadge, Badge, Card, PercentBar } from '@/components/ui';
+import { AiBadge, Badge, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { Feedback, Submission } from '@/lib/types';
 
@@ -29,12 +29,22 @@ export default function Result() {
           <div className="text-sm text-slate-500">{g.total_score} / {g.max_score} ball</div>
         </div>
         <PercentBar percent={g.percent} />
-        <div className="flex gap-4 mt-3 text-sm">
+        <div className="flex gap-4 mt-3 text-sm items-center flex-wrap">
           <span>✅ Obyektiv: <b>{g.objective_score}</b></span>
-          <span>🤖 AI: <b>{g.ai_score}</b></span>
+          <span>🤖 AI: <b>{Math.round(g.total_score - g.objective_score)}</b></span>
+          {typeof g.confidence === 'number' && g.rubric_breakdown?.length > 0 && <ConfidenceBadge value={g.confidence} />}
           <AiBadge provider={g.ai_provider} />
         </div>
       </Card>
+
+      {g.rubric_breakdown && g.rubric_breakdown.length > 0 && (
+        <>
+          <h2 className="font-semibold mb-2">🧠 AI rubrika bahosi</h2>
+          <Card className="p-4 mb-6">
+            <RubricBreakdown items={g.rubric_breakdown} />
+          </Card>
+        </>
+      )}
 
       <h2 className="font-semibold mb-2">Savollar bo'yicha</h2>
       <div className="space-y-3 mb-6">

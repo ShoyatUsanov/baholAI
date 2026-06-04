@@ -10,6 +10,7 @@ and teacher can see exactly where each point came from.
 from __future__ import annotations
 
 from app.ai import grade_open_answer
+from app.ai.grader import REVIEW_THRESHOLD
 
 OBJECTIVE_TYPES = {"mcq", "fill", "truefalse", "match", "reorder"}
 AI_TYPES = {"short", "essay"}
@@ -39,11 +40,13 @@ def _score_objective(q: dict, response) -> tuple[float, bool]:
     return (max_score if ok else 0.0), ok
 
 
-async def grade_submission(questions: list[dict], answers: dict) -> dict:
+async def grade_submission(questions: list[dict], answers: dict, rubric: list[dict] | None = None) -> dict:
     objective_score = 0.0
     ai_score = 0.0
     max_score = 0.0
     breakdown: list[dict] = []
+    rubric_breakdown: list[dict] = []
+    confidences: list[int] = []
     used_ollama = False
 
     for q in questions:
@@ -59,8 +62,13 @@ async def grade_submission(questions: list[dict], answers: dict) -> dict:
                 model_answer=q.get("answer", "") or "",
                 student_answer=response or "",
                 max_score=qmax,
+                rubric=rubric or None,
             )
             ai_score += result["score"]
+            confidences.append(result["confidence"])
+            # Tag each rubric criterion with its question for multi-question grading.
+            for crit in result["rubric_breakdown"]:
+                rubric_breakdown.append({**crit, "question_id": qid})
             if result["provider"] == "ollama":
                 used_ollama = True
             breakdown.append({
@@ -87,6 +95,8 @@ async def grade_submission(questions: list[dict], answers: dict) -> dict:
                 "expected": q.get("answer"),
             })
 
+    confidence = int(round(sum(confidences) / len(confidences))) if confidences else 100
+
     return {
         "objective_score": round(objective_score, 1),
         "ai_score": round(ai_score, 1),
@@ -94,4 +104,7 @@ async def grade_submission(questions: list[dict], answers: dict) -> dict:
         "max_score": round(max_score, 1),
         "breakdown": breakdown,
         "ai_provider": "ollama" if used_ollama else "fallback",
+        "rubric_breakdown": rubric_breakdown,
+        "confidence": confidence,
+        "needs_review": confidence < REVIEW_THRESHOLD,
     }

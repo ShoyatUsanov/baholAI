@@ -55,7 +55,7 @@ def assignment_out(a: Assignment) -> dict:
     return {
         "id": a.id, "subject_id": a.subject_id, "teacher_id": a.teacher_id,
         "institution_id": a.institution_id, "title": a.title, "description": a.description,
-        "method": a.method, "questions": a.questions,
+        "method": a.method, "questions": a.questions, "rubric": a.rubric or [],
         "target_student_ids": a.target_student_ids,
         "due_at": a.due_at.isoformat() if a.due_at else None,
         "created_at": a.created_at.isoformat(),
@@ -70,6 +70,9 @@ def grade_out(g: Grade | None) -> dict | None:
         "total_score": g.total_score, "max_score": g.max_score,
         "percent": round(g.total_score / g.max_score * 100) if g.max_score else 0,
         "breakdown": g.breakdown, "ai_provider": g.ai_provider,
+        "rubric_breakdown": g.rubric_breakdown or [],
+        "confidence": g.confidence, "needs_review": g.needs_review,
+        "was_changed": g.was_changed,
     }
 
 

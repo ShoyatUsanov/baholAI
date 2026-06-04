@@ -6,10 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, require_roles
 from app.models import Assignment, Grade, OriginalityReport, Submission, User
 from app.originality import build_report
-from app.schemas import SubmissionIn
+from app.schemas import GradeOverrideIn, SubmissionIn
 from app.serialize import originality_out, submission_out
 from app.services.grading import grade_submission
 
@@ -33,7 +33,9 @@ async def submit(
     db.add(sub)
     await db.flush()  # get sub.id
 
-    result = await grade_submission(assignment.questions or [], payload.answers or {})
+    result = await grade_submission(
+        assignment.questions or [], payload.answers or {}, assignment.rubric or [],
+    )
     grade = Grade(
         submission_id=sub.id,
         objective_score=result["objective_score"],
@@ -42,6 +44,9 @@ async def submit(
         max_score=result["max_score"],
         breakdown=result["breakdown"],
         ai_provider=result["ai_provider"],
+        rubric_breakdown=result["rubric_breakdown"],
+        confidence=result["confidence"],
+        needs_review=result["needs_review"],
     )
     db.add(grade)
     # award XP proportional to percent
@@ -107,3 +112,32 @@ async def submission_originality(submission_id: int, db: AsyncSession = Depends(
         report = await build_report(s.id, db)
         await db.commit()
     return originality_out(report)
+
+
+@router.patch("/{submission_id}/grade")
+async def override_grade(
+    submission_id: int,
+    payload: GradeOverrideIn,
+    db: AsyncSession = Depends(get_db),
+    teacher: User = Depends(require_roles("teacher", "institution_admin", "superadmin")),
+) -> dict:
+    """Teacher overrides the AI portion of a grade. The original ai_score is kept
+    and was_changed is flagged, so the AI-vs-human diff stays auditable."""
+    s = await db.get(Submission, submission_id)
+    if not s:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topshiriq topilmadi")
+    grade = (await db.execute(select(Grade).where(Grade.submission_id == s.id))).scalar_one_or_none()
+    if not grade:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "baho topilmadi")
+
+    new_ai = max(0.0, min(payload.ai_score, grade.max_score - grade.objective_score))
+    grade.total_score = round(grade.objective_score + new_ai, 1)
+    grade.was_changed = True
+    grade.needs_review = False  # a human has now reviewed it
+    # award XP delta is out of scope; analytics read total_score directly.
+    await db.commit()
+    await db.refresh(s)
+    report = (
+        await db.execute(select(OriginalityReport).where(OriginalityReport.submission_id == s.id))
+    ).scalar_one_or_none()
+    return submission_out(s, grade, report)

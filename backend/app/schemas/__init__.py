@@ -42,6 +42,7 @@ class AssignmentIn(BaseModel):
     description: str | None = None
     method: str = "standard"
     questions: list[dict[str, Any]] = []
+    rubric: list[dict[str, Any]] = []
     target_student_ids: list[int] = []
     due_at: datetime | None = None
 
@@ -49,6 +50,12 @@ class AssignmentIn(BaseModel):
 class SubmissionIn(BaseModel):
     assignment_id: int
     answers: dict[str, Any] = {}
+
+
+class GradeOverrideIn(BaseModel):
+    """Teacher adjusts the AI portion of a grade; the original ai_score is kept."""
+
+    ai_score: float
 
 
 class FeedbackIn(BaseModel):

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
 
-import { AiBadge, Badge, Button, Card, PercentBar } from '@/components/ui';
+import { AiBadge, Badge, Button, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import type {
@@ -43,6 +43,7 @@ export default function Grading() {
   const [subs, setSubs] = useState<Submission[]>([]);
   const [names, setNames] = useState<Record<number, string>>({});
   const [subject, setSubject] = useState<Subject | null>(null);
+  const [onlyReview, setOnlyReview] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -57,9 +58,16 @@ export default function Grading() {
     }
   }, [user]);
 
-  useEffect(() => {
+  const loadSubs = useCallback(() => {
     if (active) api.get<Submission[]>(`/submissions?assignment_id=${active.id}`).then(setSubs);
   }, [active]);
+
+  useEffect(() => {
+    loadSubs();
+  }, [loadSubs]);
+
+  const reviewCount = subs.filter((s) => s.grade?.needs_review).length;
+  const shown = onlyReview ? subs.filter((s) => s.grade?.needs_review) : subs;
 
   // Map question id → question (so the teacher sees each prompt next to the answer).
   const questionsById: Record<string, Question> = Object.fromEntries((active?.questions ?? []).map((q) => [q.id, q]));
@@ -93,8 +101,28 @@ export default function Grading() {
             ))}
           </div>
 
+          {subs.length > 0 && (
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => setOnlyReview((v) => !v)}
+                className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
+                  onlyReview
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+              >
+                ⚠️ Ko'rib chiqish kerak ({reviewCount})
+              </button>
+              {onlyReview && (
+                <button onClick={() => setOnlyReview(false)} className="text-sm text-slate-500 hover:underline">
+                  Hammasini ko'rsatish
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="space-y-3">
-            {subs.map((s) => (
+            {shown.map((s) => (
               <GradeRow
                 key={s.id}
                 sub={s}
@@ -102,9 +130,13 @@ export default function Grading() {
                 subjectName={subject?.name ?? 'Fan'}
                 questionsById={questionsById}
                 subNameById={subNameById}
+                onChanged={loadSubs}
               />
             ))}
             {active && subs.length === 0 && <p className="text-slate-400 text-sm">Bu vazifaga topshirish yo'q.</p>}
+            {active && subs.length > 0 && shown.length === 0 && (
+              <p className="text-slate-400 text-sm">Ko'rib chiqish kerak bo'lgan topshiriq yo'q. 🎉</p>
+            )}
           </div>
         </>
       )}
@@ -118,12 +150,14 @@ function GradeRow({
   subjectName,
   questionsById,
   subNameById,
+  onChanged,
 }: {
   sub: Submission;
   studentName: string;
   subjectName: string;
   questionsById: Record<string, Question>;
   subNameById: Record<number, string>;
+  onChanged: () => void;
 }) {
   const [rating, setRating] = useState(4);
   const [comment, setComment] = useState('');
@@ -135,8 +169,24 @@ function GradeRow({
   const g = sub.grade;
   const pct = g?.percent ?? 0;
   const breakdown = g?.breakdown ?? [];
+  const rubric = g?.rubric_breakdown ?? [];
   const orig = sub.originality;
   const lvl = origLevel(orig);
+
+  const [editing, setEditing] = useState(false);
+  const [aiVal, setAiVal] = useState(g?.ai_score ?? 0);
+  const [savingGrade, setSavingGrade] = useState(false);
+
+  const saveGrade = async () => {
+    setSavingGrade(true);
+    try {
+      await api.patch(`/submissions/${sub.id}/grade`, { ai_score: aiVal });
+      setEditing(false);
+      onChanged();
+    } finally {
+      setSavingGrade(false);
+    }
+  };
 
   const suggest = async () => {
     setAiBusy(true);
@@ -173,11 +223,14 @@ function GradeRow({
           <div className="font-medium">{studentName}</div>
           <div className="text-xs text-slate-400">{new Date(sub.submitted_at).toLocaleString()}</div>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm flex-wrap justify-end">
           {lvl && <OriginalityChip level={lvl} open={origOpen} onClick={() => setOrigOpen((o) => !o)} />}
+          {g?.needs_review && <Badge color="amber">⚠️ Ko'rib chiqish</Badge>}
           <span className="font-semibold">{pct}%</span>
           <Badge color="green">avto {g?.objective_score}</Badge>
-          <Badge color="violet">🤖 {g?.ai_score}</Badge>
+          <Badge color="violet">🤖 {g ? Math.round(g.total_score - g.objective_score) : 0}</Badge>
+          {g && <ConfidenceBadge value={g.confidence} />}
+          {g?.was_changed && <Badge color="slate" >✎ tuzatildi (AI: {g.ai_score})</Badge>}
           {g && <AiBadge provider={g.ai_provider} />}
         </div>
       </div>
@@ -190,6 +243,38 @@ function GradeRow({
           {open ? 'Javoblarni yashirish' : '📄 Javoblarni ko\'rish'}
         </button>
       </div>
+
+      {rubric.length > 0 && (
+        <div className="mb-3 rounded-lg bg-violet-50/60 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/60 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold text-violet-900 dark:text-violet-200">🧠 AI rubrika bahosi</div>
+            {!editing ? (
+              <button
+                onClick={() => { setAiVal(g ? Math.round((g.total_score - g.objective_score) * 10) / 10 : 0); setEditing(true); }}
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                ✎ AI ballini tuzatish
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  step="0.5"
+                  min={0}
+                  value={aiVal}
+                  onChange={(e) => setAiVal(Number(e.target.value))}
+                  className="w-16 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1 text-sm"
+                />
+                <Button onClick={saveGrade} disabled={savingGrade} className="text-xs">
+                  {savingGrade ? '…' : 'Saqlash'}
+                </Button>
+                <button onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:underline">Bekor</button>
+              </div>
+            )}
+          </div>
+          <RubricBreakdown items={rubric} />
+        </div>
+      )}
 
       {open && (
         <div className="mb-3 space-y-2 border-t border-slate-100 dark:border-slate-700 pt-3">

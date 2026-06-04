@@ -104,6 +104,15 @@ ASSIGNMENTS = {
              "prompt": "Diskriminant nima uchun kerakligini tushuntiring.",
              "answer": "Diskriminant tenglama nechta haqiqiy ildizga ega ekanini aniqlaydi."},
         ],
+        # Rubric for q3 (explainable AI grading). max_points sum = q3.max_score.
+        "rubric": [
+            {"criterion": "Diskriminant ta'rifi", "max_points": 2,
+             "description": "diskriminant ildiz soni aniqlash"},
+            {"criterion": "Ildizlar soniga bog'liqlik", "max_points": 2,
+             "description": "musbat ikkita nol bitta manfiy haqiqiy ildiz yo'q"},
+            {"criterion": "Aniqlik va misol", "max_points": 1,
+             "description": "tushuntirish misol aniq"},
+        ],
     },
     "fizika": {
         "title": "Nyuton qonunlari",
@@ -277,6 +286,21 @@ _MATH_ORIGINALITY = {
     },
 }
 
+# Confidence demo for the matematika assignment: student4 gives a thorough answer
+# covering every rubric criterion (high confidence → not flagged); student5 gives
+# a thin answer (low confidence → auto needs_review).
+_MATH_CONFIDENCE = {
+    "student4": {
+        "q1": "2 va 3", "q2": "4ac",
+        "q3": (
+            "Diskriminant tenglamaning nechta haqiqiy ildizi borligini aniqlaydi. "
+            "Agar diskriminant musbat bo'lsa ikkita ildiz, nolga teng bo'lsa bitta ildiz, "
+            "manfiy bo'lsa haqiqiy ildiz yo'q. Misol uchun D ni hisoblab ildizlar sonini aniq bilamiz."
+        ),
+    },
+    "student5": {"q1": "2 va 3", "q2": "xato", "q3": "Diskriminant kerak."},
+}
+
 
 async def run() -> None:
     async with engine.begin() as conn:
@@ -326,7 +350,8 @@ async def run() -> None:
             asg = Assignment(
                 subject_id=subjects[slug].id, teacher_id=teachers[slug].id,
                 institution_id=uni.id, title=a["title"], description=a["description"],
-                method=a["method"], questions=a["questions"], target_student_ids=[],
+                method=a["method"], questions=a["questions"], rubric=a.get("rubric", []),
+                target_student_ids=[],
             )
             db.add(asg)
             assignments[slug] = asg
@@ -339,10 +364,11 @@ async def run() -> None:
         all_subs: list[Submission] = []
         for slug, asg in assignments.items():
             if slug == "matematika":
-                # Deterministic set powering the originality demo (see _MATH_ORIGINALITY):
-                # student1≈student2 (copy), student3 AI-like, student4 a clean control.
-                pairs = [(by_username[u], dict(ans)) for u, ans in _MATH_ORIGINALITY.items()]
-                pairs.append((by_username["student4"], _answers_for(asg.questions, 1.0)))
+                # Deterministic set powering two demos on one assignment:
+                #  - originality: student1≈student2 (copy), student3 AI-like
+                #  - confidence: student4 thorough (high), student5 thin (needs_review)
+                demo = {**_MATH_ORIGINALITY, **_MATH_CONFIDENCE}
+                pairs = [(by_username[u], dict(ans)) for u, ans in demo.items()]
             else:
                 # 3-5 students attempt each assignment
                 who = rng.sample(students, k=rng.randint(3, 5))
@@ -355,13 +381,22 @@ async def run() -> None:
                 db.add(sub)
                 await db.flush()
                 all_subs.append(sub)
-                result = await grade_submission(asg.questions, answers)
-                db.add(Grade(
+                result = await grade_submission(asg.questions, answers, asg.rubric or [])
+                grade = Grade(
                     submission_id=sub.id,
                     objective_score=result["objective_score"], ai_score=result["ai_score"],
                     total_score=result["total_score"], max_score=result["max_score"],
                     breakdown=result["breakdown"], ai_provider=result["ai_provider"],
-                ))
+                    rubric_breakdown=result["rubric_breakdown"], confidence=result["confidence"],
+                    needs_review=result["needs_review"],
+                )
+                # Demo: teacher corrected the AI score on student3's math answer, so
+                # the AI-vs-human diff is visible (was_changed keeps original ai_score).
+                if slug == "matematika" and st.username == "student3":
+                    grade.was_changed = True
+                    grade.needs_review = False
+                    grade.total_score = round(grade.objective_score + max(0.0, grade.ai_score - 1.5), 1)
+                db.add(grade)
                 pct = round(result["total_score"] / result["max_score"] * 100) if result["max_score"] else 0
                 st.xp += pct
                 # Teacher leaves feedback on ~60% of submissions

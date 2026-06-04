@@ -60,6 +60,7 @@ async def create_assignment(
         description=payload.description,
         method=payload.method,
         questions=payload.questions,
+        rubric=payload.rubric,
         target_student_ids=payload.target_student_ids,
         due_at=payload.due_at,
     )

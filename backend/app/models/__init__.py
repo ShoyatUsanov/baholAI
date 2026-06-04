@@ -113,6 +113,8 @@ class Assignment(Base):
     # Modern/interactive teaching method tag (see services.methods).
     method: Mapped[str] = mapped_column(String(40), default="standard")
     questions: Mapped[list] = mapped_column(JSON, default=list)
+    # Optional grading rubric for open answers: [{criterion, max_points, description}].
+    rubric: Mapped[list] = mapped_column(JSON, default=list)
     target_student_ids: Mapped[list] = mapped_column(JSON, default=list)  # empty = all students
     due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -150,6 +152,13 @@ class Grade(Base):
     # Per-question breakdown incl. AI rationale + suggestions (Uzbek).
     breakdown: Mapped[list] = mapped_column(JSON, default=list)
     ai_provider: Mapped[str] = mapped_column(String(24), default="fallback")  # ollama|fallback
+    # Explainable AI grading: each point tied to a rubric criterion + evidence.
+    rubric_breakdown: Mapped[list] = mapped_column(JSON, default=list)
+    confidence: Mapped[int] = mapped_column(Integer, default=100)         # 0..100
+    needs_review: Mapped[bool] = mapped_column(Boolean, default=False)    # low confidence
+    # ai_score above keeps the ORIGINAL AI estimate; when a teacher overrides the
+    # score we update total_score and flag this, so the diff stays auditable.
+    was_changed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     submission: Mapped[Submission] = relationship(back_populates="grade")

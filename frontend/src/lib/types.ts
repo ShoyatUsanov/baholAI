@@ -33,6 +33,12 @@ export interface Question {
   ai_graded?: boolean;
 }
 
+export interface RubricItem {
+  criterion: string;
+  max_points: number;
+  description?: string;
+}
+
 export interface Assignment {
   id: number;
   subject_id: number;
@@ -41,6 +47,7 @@ export interface Assignment {
   description?: string | null;
   method: string;
   questions: Question[];
+  rubric?: RubricItem[];
   target_student_ids: number[];
   due_at?: string | null;
   created_at: string;
@@ -59,6 +66,15 @@ export interface GradeBreakdown {
   suggestions?: string[];
 }
 
+export interface RubricCriterion {
+  criterion: string;
+  points_given: number;
+  max_points: number;
+  evidence?: string;
+  suggestion?: string;
+  question_id?: string;
+}
+
 export interface Grade {
   objective_score: number;
   ai_score: number;
@@ -67,6 +83,10 @@ export interface Grade {
   percent: number;
   breakdown: GradeBreakdown[];
   ai_provider: 'ollama' | 'fallback';
+  rubric_breakdown: RubricCriterion[];
+  confidence: number;
+  needs_review: boolean;
+  was_changed: boolean;
 }
 
 export interface OriginalityReport {
