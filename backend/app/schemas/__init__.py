@@ -63,6 +63,98 @@ class ApiKeyIn(BaseModel):
     scopes: list[str] = ["read:subjects", "read:analytics"]
 
 
+class CollectionIn(BaseModel):
+    subject_id: int
+    title: str
+    description: str | None = None
+    icon: str = "📚"
+    level: str | None = None
+
+
+class LessonIn(BaseModel):
+    collection_id: int
+    title: str
+    content: str = ""
+    est_minutes: int = 10
+    exercises: list[dict[str, Any]] = []
+
+
+class DeckIn(BaseModel):
+    subject_id: int
+    collection_id: int | None = None
+    title: str
+    description: str | None = None
+    cards: list[dict[str, Any]] = []  # {front, back, example?}
+
+
+class TestIn(BaseModel):
+    subject_id: int
+    collection_id: int | None = None
+    title: str
+    duration_minutes: int = 10
+    is_final: bool = False
+    questions: list[dict[str, Any]] = []
+
+
+class TestSubmitIn(BaseModel):
+    answers: dict[str, Any] = {}
+    time_spent: int = 0
+
+
+class CardReviewIn(BaseModel):
+    quality: int = 4  # 0..5
+
+
+class GroupIn(BaseModel):
+    name: str
+    subject_id: int | None = None
+    level: str | None = None
+    member_ids: list[int] = []
+    days: list[int] = []
+    start_time: str | None = None
+    end_time: str | None = None
+    room: str | None = None
+    monthly_fee: int = 0
+
+
+class ScheduleIn(BaseModel):
+    group_id: int | None = None
+    subject_id: int | None = None
+    title: str
+    day_of_week: int = 1
+    start_time: str = "09:00"
+    end_time: str = "10:00"
+    room: str | None = None
+
+
+class AttendanceIn(BaseModel):
+    student_id: int
+    group_id: int | None = None
+    date: str
+    status: str = "present"
+    note: str | None = None
+
+
+class PaymentIn(BaseModel):
+    student_id: int
+    amount: int
+    currency: str = "UZS"
+    period: str
+    status: str = "pending"
+    group_id: int | None = None
+
+
+class MessageIn(BaseModel):
+    to_id: int
+    body: str
+
+
+class AnnouncementIn(BaseModel):
+    title: str
+    body: str
+    audience: str = "all"
+
+
 class AiGradeIn(BaseModel):
     prompt: str
     model_answer: str = ""

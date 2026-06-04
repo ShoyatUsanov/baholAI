@@ -169,6 +169,216 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
+# ===========================================================================
+# Learning content — per-subject collections (to'plamlar), lessons, decks,
+# flashcards (with per-student SM-2 progress) and self-study tests.
+# ===========================================================================
+class Collection(Base):
+    """A themed set (to'plam) of lessons within a subject."""
+
+    __tablename__ = "collections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    icon: Mapped[str] = mapped_column(String(16), default="📚")
+    level: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    order_idx: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Lesson(Base):
+    """A lesson inside a collection: content + inline practice exercises."""
+
+    __tablename__ = "lessons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    collection_id: Mapped[int] = mapped_column(ForeignKey("collections.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    content: Mapped[str] = mapped_column(Text, default="")
+    est_minutes: Mapped[int] = mapped_column(Integer, default=10)
+    exercises: Mapped[list] = mapped_column(JSON, default=list)  # same question schema as assignments
+    order_idx: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Deck(Base):
+    __tablename__ = "decks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    collection_id: Mapped[int | None] = mapped_column(ForeignKey("collections.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Flashcard(Base):
+    __tablename__ = "flashcards"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), index=True)
+    front: Mapped[str] = mapped_column(Text)
+    back: Mapped[str] = mapped_column(Text)
+    example: Mapped[str | None] = mapped_column(Text, nullable=True)
+    order_idx: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CardProgress(Base):
+    """Per-student SM-2 spaced-repetition state for a flashcard."""
+
+    __tablename__ = "card_progress"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    card_id: Mapped[int] = mapped_column(ForeignKey("flashcards.id"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    easiness: Mapped[float] = mapped_column(Float, default=2.5)
+    interval: Mapped[int] = mapped_column(Integer, default=0)
+    repetitions: Mapped[int] = mapped_column(Integer, default=0)
+    next_review: Mapped[datetime] = mapped_column(DateTime, default=now)
+    status: Mapped[str] = mapped_column(String(12), default="new")  # new|learning|known
+
+
+class Test(Base):
+    """Self-study test / quiz (mirrors assignment questions, timed)."""
+
+    __tablename__ = "tests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    collection_id: Mapped[int | None] = mapped_column(ForeignKey("collections.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(200))
+    duration_minutes: Mapped[int] = mapped_column(Integer, default=10)
+    questions: Mapped[list] = mapped_column(JSON, default=list)
+    is_final: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class TestResult(Base):
+    __tablename__ = "test_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+    time_spent: Mapped[int] = mapped_column(Integer, default=0)
+    wrong: Mapped[list] = mapped_column(JSON, default=list)
+    completed_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+# ===========================================================================
+# Operational modules — groups, schedule, attendance, payments, messaging.
+# ===========================================================================
+class Group(Base):
+    __tablename__ = "groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    subject_id: Mapped[int | None] = mapped_column(ForeignKey("subjects.id"), nullable=True)
+    level: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    member_ids: Mapped[list] = mapped_column(JSON, default=list)
+    days: Mapped[list] = mapped_column(JSON, default=list)  # [1..7]
+    start_time: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    end_time: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    room: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    monthly_fee: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class ScheduleEntry(Base):
+    __tablename__ = "schedule_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    subject_id: Mapped[int | None] = mapped_column(ForeignKey("subjects.id"), nullable=True)
+    title: Mapped[str] = mapped_column(String(160))
+    day_of_week: Mapped[int] = mapped_column(Integer, default=1)  # 1=Mon..7=Sun
+    start_time: Mapped[str] = mapped_column(String(8), default="09:00")
+    end_time: Mapped[str] = mapped_column(String(8), default="10:00")
+    room: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    date: Mapped[str] = mapped_column(String(10))  # YYYY-MM-DD
+    status: Mapped[str] = mapped_column(String(10), default="present")  # present|absent|late|excused
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    marked_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    amount: Mapped[int] = mapped_column(Integer, default=0)
+    currency: Mapped[str] = mapped_column(String(8), default="UZS")
+    period: Mapped[str] = mapped_column(String(20))  # e.g. 2026-06
+    status: Mapped[str] = mapped_column(String(10), default="pending")  # paid|pending|overdue
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    from_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    to_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    audience: Mapped[str] = mapped_column(String(20), default="all")  # all|students|teachers
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    type: Mapped[str] = mapped_column(String(20), default="info")
+    read: Mapped[bool] = mapped_column(Boolean, default=False)
+    link: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    type: Mapped[str] = mapped_column(String(20))  # lesson|test|flashcards|assignment|...
+    title: Mapped[str] = mapped_column(String(200))
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    xp: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 __all__ = [
     "Institution",
     "Subject",
@@ -179,5 +389,20 @@ __all__ = [
     "Submission",
     "Grade",
     "Feedback",
+    "Collection",
+    "Lesson",
+    "Deck",
+    "Flashcard",
+    "CardProgress",
+    "Test",
+    "TestResult",
+    "Group",
+    "ScheduleEntry",
+    "Attendance",
+    "Payment",
+    "Message",
+    "Announcement",
+    "Notification",
+    "Activity",
     "now",
 ]

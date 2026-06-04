@@ -13,14 +13,27 @@ import secrets
 
 from app.db import Base, SessionLocal, engine
 from app.models import (
+    Activity,
+    Announcement,
     ApiKey,
     Assignment,
+    Attendance,
+    Collection,
+    Deck,
     Feedback,
+    Flashcard,
     Grade,
+    Group,
     Institution,
+    Lesson,
+    Message,
+    Notification,
+    Payment,
+    ScheduleEntry,
     Session,
     Subject,
     Submission,
+    Test,
     User,
 )
 from app.services.grading import grade_submission
@@ -173,6 +186,45 @@ ASSIGNMENTS = {
 }
 
 
+# Per-subject collections (to'plamlar) — title + icon + lesson titles.
+COLLECTIONS = {
+    "ingliz-tili": [("Tenses (Zamonlar)", "⏳", ["Present Simple", "Present Perfect", "Past Tenses"]),
+                    ("So'z boyligi", "🗂️", ["Kundalik so'zlar", "Akademik so'zlar"])],
+    "matematika": [("Algebra asoslari", "➗", ["Tenglamalar", "Kvadrat tenglamalar"]),
+                   ("Geometriya", "📐", ["Uchburchaklar", "Aylana"])],
+    "fizika": [("Mexanika", "⚙️", ["Nyuton qonunlari", "Energiya"]),
+               ("Elektr", "⚡", ["Tok va kuchlanish"])],
+    "ona-tili": [("Sintaksis", "📝", ["Gap bo'laklari", "Qo'shma gaplar"]),
+                 ("Imlo", "✍️", ["Yozuv qoidalari"])],
+    "tarix": [("O'zbekiston tarixi", "🏺", ["Amir Temur davri", "Mustaqillik"]),
+              ("Jahon tarixi", "🌍", ["Qadimgi dunyo"])],
+    "informatika": [("Algoritmlar", "🔢", ["Algoritm asoslari", "Tartiblash"]),
+                    ("Dasturlash", "💾", ["O'zgaruvchilar", "Sikllar"])],
+    "kimyo": [("Umumiy kimyo", "⚗️", ["Davriy jadval", "Reaksiyalar"]),
+              ("Organik kimyo", "🧪", ["Uglevodorodlar"])],
+    "biologiya": [("Sitologiya", "🔬", ["Hujayra tuzilishi", "Hujayra bo'linishi"]),
+                  ("Genetika", "🧬", ["Irsiyat asoslari"])],
+}
+
+# A few flashcards per subject (front / back).
+DECK_CARDS = {
+    "ingliz-tili": [("knowledge", "bilim"), ("achievement", "yutuq"), ("research", "tadqiqot"), ("improve", "yaxshilamoq")],
+    "matematika": [("hosila", "funksiya o'zgarish tezligi"), ("integral", "yig'indi/yuzani topish"), ("diskriminant", "D = b²−4ac"), ("vektor", "yo'nalishli kattalik")],
+    "fizika": [("tezlanish", "tezlikning o'zgarish tezligi"), ("kuch", "F = m·a"), ("energiya", "ish bajarish qobiliyati"), ("quvvat", "vaqt birligidagi ish")],
+    "ona-tili": [("ega", "gapning bosh bo'lagi (kim/nima)"), ("kesim", "ish-harakatni bildiradi"), ("aniqlovchi", "belgini bildiradi"), ("to'ldiruvchi", "obyektni bildiradi")],
+    "tarix": [("Amir Temur", "Temuriylar asoschisi"), ("1991", "Mustaqillik yili"), ("Registon", "Samarqanddagi maydon"), ("Buyuk ipak yo'li", "qadimgi savdo yo'li")],
+    "informatika": [("algoritm", "aniq qadamlar ketma-ketligi"), ("massiv", "bir turdagi elementlar to'plami"), ("sikl", "takrorlanuvchi blok"), ("O(log n)", "binary search murakkabligi")],
+    "kimyo": [("H2O", "suv"), ("CO2", "karbonat angidrid"), ("valentlik", "bog'lanish qobiliyati"), ("kation", "musbat ion")],
+    "biologiya": [("hujayra", "tirik organizm birligi"), ("mitoxondriya", "energiya stansiyasi"), ("DNK", "irsiy axborot"), ("fotosintez", "yorug'likdan oziq hosil qilish")],
+}
+
+LESSON_BODY = (
+    "{ct} mavzusiga kirish. Ushbu darsda {subj} fanidan asosiy tushunchalar, "
+    "ta'riflar va misollar ko'rib chiqiladi. Darsni o'qib chiqing, so'ng quyidagi "
+    "interaktiv mashqlarni bajaring va bilimingizni mustahkamlang."
+)
+
+
 def _answers_for(questions: list[dict], correctness: float) -> dict:
     """Build a student's answers; `correctness` in [0,1] controls how good they are."""
     ans: dict = {}
@@ -278,6 +330,81 @@ async def run() -> None:
                         subject_id=subjects[slug].id, rating=max(2, min(5, pct // 20 + 1)),
                         comment=comment, seen_by_student=rng.random() < 0.5,
                     ))
+
+        # ---- Collections, lessons, decks, tests (per subject) ----
+        for slug, cols in COLLECTIONS.items():
+            subj = subjects[slug]
+            teacher = teachers[slug]
+            for ci, (ctitle, cicon, lesson_titles) in enumerate(cols):
+                col = Collection(subject_id=subj.id, title=ctitle, icon=cicon, order_idx=ci, level="Boshlang'ich")
+                db.add(col)
+                await db.flush()
+                for li, lt in enumerate(lesson_titles):
+                    ex = [{
+                        "id": "p1", "type": "mcq", "prompt": f"{lt}: to'g'ri javobni tanlang",
+                        "options": ["To'g'ri variant", "Variant B", "Variant C"],
+                        "answer": "To'g'ri variant", "max_score": 1,
+                    }]
+                    db.add(Lesson(collection_id=col.id, title=lt,
+                                  content=LESSON_BODY.format(ct=lt, subj=subj.name),
+                                  est_minutes=10 + li * 5, exercises=ex, order_idx=li))
+                if ci == 0:  # one deck + one test on the first collection
+                    deck = Deck(subject_id=subj.id, collection_id=col.id,
+                                title=f"{subj.name} — kartochkalar", owner_id=teacher.id)
+                    db.add(deck)
+                    await db.flush()
+                    for i, (front, back) in enumerate(DECK_CARDS[slug]):
+                        db.add(Flashcard(deck_id=deck.id, front=front, back=back, order_idx=i))
+                    db.add(Test(subject_id=subj.id, collection_id=col.id,
+                                title=f"{ctitle} — nazorat testi", duration_minutes=10,
+                                questions=ASSIGNMENTS[slug]["questions"], created_by=teacher.id))
+        await db.flush()
+
+        # ---- Groups + schedule + attendance + payments ----
+        from datetime import date, timedelta
+        groups = []
+        for slug in ["ingliz-tili", "matematika", "fizika"]:
+            subj = subjects[slug]
+            teacher = teachers[slug]
+            members = [s.id for s in rng.sample(students, k=4)]
+            g = Group(name=f"{subj.name} A-guruh", teacher_id=teacher.id, subject_id=subj.id,
+                      level="Bachelor 1", member_ids=members, days=[1, 3, 5],
+                      start_time="14:00", end_time="15:30", room="201", monthly_fee=300000)
+            db.add(g)
+            groups.append((g, members, teacher, subj))
+        await db.flush()
+        today = date(2026, 6, 4)
+        for g, members, teacher, subj in groups:
+            for d in (1, 3):
+                db.add(ScheduleEntry(group_id=g.id, teacher_id=teacher.id, subject_id=subj.id,
+                                     title=f"{subj.name} darsi", day_of_week=d,
+                                     start_time="14:00", end_time="15:30", room="201"))
+            for d in range(5):
+                day = (today - timedelta(days=d)).isoformat()
+                for sid in members:
+                    st = rng.choice(["present", "present", "present", "absent", "late"])
+                    db.add(Attendance(student_id=sid, group_id=g.id, date=day, status=st, marked_by=teacher.id))
+            for sid in members:
+                db.add(Payment(student_id=sid, amount=g.monthly_fee, period="2026-06",
+                               status=rng.choice(["paid", "paid", "pending", "overdue"]), group_id=g.id))
+
+        # ---- Announcements, messages, notifications, activity ----
+        db.add(Announcement(title="Yakuniy imtihonlar boshlanmoqda",
+                            body="Iyun oyida yakuniy nazorat ishlari o'tkaziladi. Tayyorgarlikni boshlang.",
+                            created_by=2, audience="all"))
+        db.add(Announcement(title="Yangi AI baholash tizimi",
+                            body="Endi ochiq javoblar sun'iy intellekt yordamida baholanadi va o'zbekcha izoh beriladi.",
+                            created_by=1, audience="all"))
+        s0 = students[0]
+        t0 = teachers["matematika"]
+        db.add(Message(from_id=t0.id, to_id=s0.id, body="Salom! Uy vazifangizni ko'rdim, ajoyib ish."))
+        db.add(Message(from_id=s0.id, to_id=t0.id, body="Rahmat, ustoz!"))
+        db.add(Notification(user_id=s0.id, title="Yangi feedback", body="Matematika fanidan feedback oldingiz.",
+                            type="grade", link="/student/feedback"))
+        db.add(Notification(user_id=s0.id, title="Yangi e'lon", body="Yakuniy imtihonlar boshlanmoqda",
+                            type="announcement", link="/announcements"))
+        for st in students[:3]:
+            db.add(Activity(user_id=st.id, type="lesson", title="Dars yakunlandi", xp=10))
 
         # A demo API key for the public /api/v1 surface
         db.add(ApiKey(

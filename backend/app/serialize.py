@@ -1,7 +1,34 @@
 """Plain-dict serializers for API responses (basic, no Pydantic response models)."""
 from __future__ import annotations
 
-from app.models import ApiKey, Assignment, Feedback, Grade, Institution, Submission, Subject, User
+from app.models import (
+    Activity,
+    Announcement,
+    ApiKey,
+    Assignment,
+    Attendance,
+    Collection,
+    Deck,
+    Feedback,
+    Flashcard,
+    Grade,
+    Group,
+    Institution,
+    Lesson,
+    Message,
+    Notification,
+    Payment,
+    ScheduleEntry,
+    Submission,
+    Subject,
+    Test,
+    TestResult,
+    User,
+)
+
+
+def _iso(dt):
+    return dt.isoformat() if dt else None
 
 
 def institution_out(i: Institution) -> dict:
@@ -60,6 +87,111 @@ def feedback_out(f: Feedback) -> dict:
         "student_id": f.student_id, "subject_id": f.subject_id,
         "rating": f.rating, "comment": f.comment,
         "seen_by_student": f.seen_by_student, "created_at": f.created_at.isoformat(),
+    }
+
+
+def collection_out(c: Collection, lesson_count: int | None = None) -> dict:
+    return {
+        "id": c.id, "subject_id": c.subject_id, "title": c.title,
+        "description": c.description, "icon": c.icon, "level": c.level,
+        "order_idx": c.order_idx, "lesson_count": lesson_count,
+    }
+
+
+def lesson_out(l: Lesson) -> dict:
+    return {
+        "id": l.id, "collection_id": l.collection_id, "title": l.title,
+        "content": l.content, "est_minutes": l.est_minutes,
+        "exercises": l.exercises, "order_idx": l.order_idx,
+    }
+
+
+def deck_out(d: Deck, card_count: int | None = None) -> dict:
+    return {
+        "id": d.id, "subject_id": d.subject_id, "collection_id": d.collection_id,
+        "title": d.title, "description": d.description, "card_count": card_count,
+    }
+
+
+def flashcard_out(f: Flashcard) -> dict:
+    return {"id": f.id, "deck_id": f.deck_id, "front": f.front, "back": f.back, "example": f.example}
+
+
+def test_out(t: Test, with_answers: bool = False) -> dict:
+    questions = t.questions
+    if not with_answers:
+        questions = [{k: v for k, v in q.items() if k != "answer"} for q in (t.questions or [])]
+    return {
+        "id": t.id, "subject_id": t.subject_id, "collection_id": t.collection_id,
+        "title": t.title, "duration_minutes": t.duration_minutes,
+        "is_final": t.is_final, "questions": questions, "question_count": len(t.questions or []),
+    }
+
+
+def test_result_out(r: TestResult) -> dict:
+    return {
+        "id": r.id, "test_id": r.test_id, "student_id": r.student_id,
+        "score": r.score, "total": r.total, "percent": round(r.score / r.total * 100) if r.total else 0,
+        "time_spent": r.time_spent, "wrong": r.wrong, "completed_at": _iso(r.completed_at),
+    }
+
+
+def group_out(g: Group) -> dict:
+    return {
+        "id": g.id, "name": g.name, "teacher_id": g.teacher_id, "subject_id": g.subject_id,
+        "level": g.level, "member_ids": g.member_ids, "days": g.days,
+        "start_time": g.start_time, "end_time": g.end_time, "room": g.room,
+        "monthly_fee": g.monthly_fee, "active": g.active,
+    }
+
+
+def schedule_out(s: ScheduleEntry) -> dict:
+    return {
+        "id": s.id, "group_id": s.group_id, "teacher_id": s.teacher_id, "subject_id": s.subject_id,
+        "title": s.title, "day_of_week": s.day_of_week,
+        "start_time": s.start_time, "end_time": s.end_time, "room": s.room,
+    }
+
+
+def attendance_out(a: Attendance) -> dict:
+    return {
+        "id": a.id, "student_id": a.student_id, "group_id": a.group_id,
+        "date": a.date, "status": a.status, "note": a.note, "marked_by": a.marked_by,
+    }
+
+
+def payment_out(p: Payment) -> dict:
+    return {
+        "id": p.id, "student_id": p.student_id, "amount": p.amount, "currency": p.currency,
+        "period": p.period, "status": p.status, "group_id": p.group_id, "created_at": _iso(p.created_at),
+    }
+
+
+def message_out(m: Message) -> dict:
+    return {
+        "id": m.id, "from_id": m.from_id, "to_id": m.to_id, "body": m.body,
+        "read": m.read, "created_at": _iso(m.created_at),
+    }
+
+
+def announcement_out(a: Announcement) -> dict:
+    return {
+        "id": a.id, "title": a.title, "body": a.body, "created_by": a.created_by,
+        "audience": a.audience, "created_at": _iso(a.created_at),
+    }
+
+
+def notification_out(n: Notification) -> dict:
+    return {
+        "id": n.id, "user_id": n.user_id, "title": n.title, "body": n.body,
+        "type": n.type, "read": n.read, "link": n.link, "created_at": _iso(n.created_at),
+    }
+
+
+def activity_out(a: Activity) -> dict:
+    return {
+        "id": a.id, "user_id": a.user_id, "type": a.type, "title": a.title,
+        "score": a.score, "xp": a.xp, "created_at": _iso(a.created_at),
     }
 
 

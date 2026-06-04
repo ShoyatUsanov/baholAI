@@ -15,10 +15,13 @@ from app.routers import (
     assignments,
     auth,
     feedback,
+    learning,
     meta,
+    ops,
     public_api,
     subjects,
     submissions,
+    users,
 )
 
 settings = get_settings()
@@ -49,6 +52,9 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"]
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(meta.router, prefix="/api/meta", tags=["meta"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
+app.include_router(ops.router, prefix="/api/ops", tags=["ops"])
 app.include_router(public_api.router, prefix="/api/v1", tags=["public-api"])
 
 

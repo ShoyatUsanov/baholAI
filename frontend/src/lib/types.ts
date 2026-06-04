@@ -99,6 +99,154 @@ export interface Method {
   recommended: string[];
 }
 
+export interface Collection {
+  id: number;
+  subject_id: number;
+  title: string;
+  description?: string | null;
+  icon: string;
+  level?: string | null;
+  lesson_count?: number;
+}
+
+export interface Lesson {
+  id: number;
+  collection_id: number;
+  title: string;
+  content: string;
+  est_minutes: number;
+  exercises: Question[];
+  order_idx: number;
+}
+
+export interface Deck {
+  id: number;
+  subject_id: number;
+  collection_id?: number | null;
+  title: string;
+  description?: string | null;
+  card_count?: number;
+}
+
+export interface Flashcard {
+  id: number;
+  deck_id: number;
+  front: string;
+  back: string;
+  example?: string | null;
+  status?: string;
+}
+
+export interface Test {
+  id: number;
+  subject_id: number;
+  collection_id?: number | null;
+  title: string;
+  duration_minutes: number;
+  is_final: boolean;
+  questions: Question[];
+  question_count: number;
+}
+
+export interface TestResult {
+  id: number;
+  test_id: number;
+  student_id: number;
+  score: number;
+  total: number;
+  percent: number;
+  time_spent: number;
+  wrong: GradeBreakdown[];
+  completed_at: string;
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  teacher_id: number;
+  subject_id: number | null;
+  level?: string | null;
+  member_ids: number[];
+  days: number[];
+  start_time?: string | null;
+  end_time?: string | null;
+  room?: string | null;
+  monthly_fee: number;
+  active: boolean;
+}
+
+export interface ScheduleEntry {
+  id: number;
+  group_id: number | null;
+  teacher_id: number;
+  subject_id: number | null;
+  title: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  room?: string | null;
+}
+
+export interface AttendanceRow {
+  id: number;
+  student_id: number;
+  group_id: number | null;
+  date: string;
+  status: string;
+  note?: string | null;
+  marked_by: number;
+}
+
+export interface Payment {
+  id: number;
+  student_id: number;
+  amount: number;
+  currency: string;
+  period: string;
+  status: string;
+  group_id: number | null;
+  created_at: string;
+}
+
+export interface Message {
+  id: number;
+  from_id: number;
+  to_id: number;
+  body: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface Announcement {
+  id: number;
+  title: string;
+  body: string;
+  created_by: number;
+  audience: string;
+  created_at: string;
+}
+
+export interface NotificationItem {
+  id: number;
+  user_id: number;
+  title: string;
+  body?: string | null;
+  type: string;
+  read: boolean;
+  link?: string | null;
+  created_at: string;
+}
+
+export interface ActivityItem {
+  id: number;
+  user_id: number;
+  type: string;
+  title: string;
+  score?: number | null;
+  xp: number;
+  created_at: string;
+}
+
 export interface StudentAnalytics {
   student_id: number;
   overall_percent: number;
