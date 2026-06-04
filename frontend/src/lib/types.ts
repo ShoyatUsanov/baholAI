@@ -69,6 +69,15 @@ export interface Grade {
   ai_provider: 'ollama' | 'fallback';
 }
 
+export interface OriginalityReport {
+  submission_id: number;
+  similarity: number; // 0..100, highest overlap with a peer submission
+  ai_likelihood: number; // 0..100, rule-based "reads as AI-written" proxy
+  matched_submission_ids: number[]; // peers above the match threshold, strongest first
+  flagged: boolean;
+  created_at: string | null;
+}
+
 export interface Submission {
   id: number;
   assignment_id: number;
@@ -77,6 +86,7 @@ export interface Submission {
   status: string;
   submitted_at: string;
   grade: Grade | null;
+  originality?: OriginalityReport | null;
 }
 
 export interface Feedback {

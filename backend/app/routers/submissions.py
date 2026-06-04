@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import Assignment, Grade, Submission, User
+from app.models import Assignment, Grade, OriginalityReport, Submission, User
+from app.originality import build_report
 from app.schemas import SubmissionIn
-from app.serialize import submission_out
+from app.serialize import originality_out, submission_out
 from app.services.grading import grade_submission
 
 router = APIRouter()
@@ -46,9 +47,16 @@ async def submit(
     # award XP proportional to percent
     if result["max_score"]:
         student.xp += round(result["total_score"] / result["max_score"] * 100)
+
+    # Originality signal for the teacher (auto, never a penalty). A new
+    # submission can also change a peer's similarity, so refresh matched ones.
+    report = await build_report(sub.id, db)
+    for mid in (report.matched_submission_ids if report else []):
+        await build_report(mid, db)
+
     await db.commit()
     await db.refresh(sub)
-    return submission_out(sub, grade)
+    return submission_out(sub, grade, report)
 
 
 @router.get("")
@@ -66,7 +74,10 @@ async def list_submissions(
     out = []
     for s in rows:
         grade = (await db.execute(select(Grade).where(Grade.submission_id == s.id))).scalar_one_or_none()
-        out.append(submission_out(s, grade))
+        report = (
+            await db.execute(select(OriginalityReport).where(OriginalityReport.submission_id == s.id))
+        ).scalar_one_or_none()
+        out.append(submission_out(s, grade, report))
     return out
 
 
@@ -76,4 +87,23 @@ async def get_submission(submission_id: int, db: AsyncSession = Depends(get_db))
     if not s:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topshiriq topilmadi")
     grade = (await db.execute(select(Grade).where(Grade.submission_id == s.id))).scalar_one_or_none()
-    return submission_out(s, grade)
+    report = (
+        await db.execute(select(OriginalityReport).where(OriginalityReport.submission_id == s.id))
+    ).scalar_one_or_none()
+    return submission_out(s, grade, report)
+
+
+@router.get("/{submission_id}/originality")
+async def submission_originality(submission_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+    """Originality signal for a submission (teacher view). Built on demand if
+    missing. A SIGNAL only — the teacher makes the final call."""
+    s = await db.get(Submission, submission_id)
+    if not s:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topshiriq topilmadi")
+    report = (
+        await db.execute(select(OriginalityReport).where(OriginalityReport.submission_id == s.id))
+    ).scalar_one_or_none()
+    if report is None:
+        report = await build_report(s.id, db)
+        await db.commit()
+    return originality_out(report)

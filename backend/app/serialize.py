@@ -17,6 +17,7 @@ from app.models import (
     Lesson,
     Message,
     Notification,
+    OriginalityReport,
     Payment,
     ScheduleEntry,
     Submission,
@@ -72,12 +73,30 @@ def grade_out(g: Grade | None) -> dict | None:
     }
 
 
-def submission_out(s: Submission, grade: Grade | None = None) -> dict:
+def originality_out(r: OriginalityReport | None) -> dict | None:
+    if not r:
+        return None
+    return {
+        "submission_id": r.submission_id,
+        "similarity": r.similarity,
+        "ai_likelihood": r.ai_likelihood,
+        "matched_submission_ids": r.matched_submission_ids or [],
+        "flagged": r.flagged,
+        "created_at": _iso(r.created_at),
+    }
+
+
+def submission_out(
+    s: Submission,
+    grade: Grade | None = None,
+    originality: OriginalityReport | None = None,
+) -> dict:
     return {
         "id": s.id, "assignment_id": s.assignment_id, "student_id": s.student_id,
         "answers": s.answers, "status": s.status,
         "submitted_at": s.submitted_at.isoformat(),
         "grade": grade_out(grade if grade is not None else s.grade),
+        "originality": originality_out(originality),
     }
 
 

@@ -36,6 +36,7 @@ from app.models import (
     Test,
     User,
 )
+from app.originality import build_report
 from app.services.grading import grade_submission
 
 # ---------------------------------------------------------------------------
@@ -243,6 +244,40 @@ def _answers_for(questions: list[dict], correctness: float) -> dict:
     return ans
 
 
+# Deterministic answers for the Matematika assignment that drive the originality
+# demo. student1 & student2 overlap heavily (group copy-paste → high similarity);
+# student3 reads as machine-written (uniform sentences, repeated connectors and
+# keywords → high ai_likelihood). It is a SIGNAL only — never an auto-penalty.
+_MATH_ORIGINALITY = {
+    "student1": {
+        "q1": "2 va 3", "q2": "4ac",
+        "q3": (
+            "Diskriminant kvadrat tenglamada ildizlar sonini aniqlash uchun kerak. "
+            "Agar u musbat bo'lsa ikkita ildiz bor, nolga teng bo'lsa bitta ildiz bor, "
+            "manfiy bo'lsa haqiqiy ildiz yo'q. Shuning uchun diskriminant juda muhim."
+        ),
+    },
+    "student2": {
+        "q1": "2 va 3", "q2": "4ac",
+        "q3": (
+            "Diskriminant kvadrat tenglamada ildizlar sonini topish uchun kerak. "
+            "Agar u musbat bo'lsa ikkita yechim bor, nolga teng bo'lsa bitta yechim bor, "
+            "manfiy bo'lsa haqiqiy ildiz yo'q. Demak diskriminant juda zarur."
+        ),
+    },
+    "student3": {
+        "q1": "2 va 3", "q2": "4ac",
+        "q3": (
+            "Diskriminant matematikada juda muhim hisoblanadi. "
+            "Shuningdek, diskriminant tenglama uchun juda muhim hisoblanadi. "
+            "Bundan tashqari, diskriminant ildizlarni aniqlash uchun muhim hisoblanadi. "
+            "Shuningdek, diskriminant tenglama yechimi uchun muhim hisoblanadi. "
+            "Xulosa qilib, diskriminant doimo juda muhim hisoblanadi."
+        ),
+    },
+}
+
+
 async def run() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -300,15 +335,26 @@ async def run() -> None:
         # Submissions + grades (vary quality across students) + some feedback
         import random
         rng = random.Random(2026)
+        by_username = {s.username: s for s in students}
+        all_subs: list[Submission] = []
         for slug, asg in assignments.items():
-            # 3-5 students attempt each assignment
-            who = rng.sample(students, k=rng.randint(3, 5))
-            for st in who:
-                correctness = rng.choice([0.4, 0.6, 0.8, 1.0])
-                answers = _answers_for(asg.questions, correctness)
+            if slug == "matematika":
+                # Deterministic set powering the originality demo (see _MATH_ORIGINALITY):
+                # student1≈student2 (copy), student3 AI-like, student4 a clean control.
+                pairs = [(by_username[u], dict(ans)) for u, ans in _MATH_ORIGINALITY.items()]
+                pairs.append((by_username["student4"], _answers_for(asg.questions, 1.0)))
+            else:
+                # 3-5 students attempt each assignment
+                who = rng.sample(students, k=rng.randint(3, 5))
+                pairs = [
+                    (st, _answers_for(asg.questions, rng.choice([0.4, 0.6, 0.8, 1.0])))
+                    for st in who
+                ]
+            for st, answers in pairs:
                 sub = Submission(assignment_id=asg.id, student_id=st.id, answers=answers, status="graded")
                 db.add(sub)
                 await db.flush()
+                all_subs.append(sub)
                 result = await grade_submission(asg.questions, answers)
                 db.add(Grade(
                     submission_id=sub.id,
@@ -330,6 +376,12 @@ async def run() -> None:
                         subject_id=subjects[slug].id, rating=max(2, min(5, pct // 20 + 1)),
                         comment=comment, seen_by_student=rng.random() < 0.5,
                     ))
+
+        # Originality reports for every submission — built after all submissions
+        # exist so peer similarity is symmetric. A SIGNAL for teachers, not a penalty.
+        await db.flush()
+        for sub in all_subs:
+            await build_report(sub.id, db)
 
         # ---- Collections, lessons, decks, tests (per subject) ----
         for slug, cols in COLLECTIONS.items():

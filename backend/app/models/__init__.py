@@ -131,6 +131,9 @@ class Submission(Base):
     grade: Mapped["Grade | None"] = relationship(
         back_populates="submission", uselist=False, cascade="all, delete-orphan"
     )
+    originality: Mapped["OriginalityReport | None"] = relationship(
+        back_populates="submission", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class Grade(Base):
@@ -167,6 +170,31 @@ class Feedback(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     seen_by_student: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class OriginalityReport(Base):
+    """Originality signal for one submission — a hint for the teacher, never an
+    automatic penalty.
+
+    `similarity` is the highest text overlap with another submission of the same
+    assignment (group copy-paste); `ai_likelihood` is a rule-based proxy for the
+    answer reading as machine-written. `flagged` just raises the teacher's
+    attention — the final judgement is always the teacher's.
+    """
+
+    __tablename__ = "originality_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[int] = mapped_column(
+        ForeignKey("submissions.id"), unique=True, index=True
+    )
+    similarity: Mapped[int] = mapped_column(Integer, default=0)          # 0..100
+    ai_likelihood: Mapped[int] = mapped_column(Integer, default=0)       # 0..100
+    matched_submission_ids: Mapped[list] = mapped_column(JSON, default=list)
+    flagged: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    submission: Mapped[Submission] = relationship(back_populates="originality")
 
 
 # ===========================================================================
@@ -389,6 +417,7 @@ __all__ = [
     "Submission",
     "Grade",
     "Feedback",
+    "OriginalityReport",
     "Collection",
     "Lesson",
     "Deck",

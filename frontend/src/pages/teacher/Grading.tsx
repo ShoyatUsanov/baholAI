@@ -1,14 +1,39 @@
 import { useEffect, useState } from 'react';
+import { ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { AiBadge, Badge, Button, Card, PercentBar } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import type { Assignment, GradeBreakdown, Question, Submission, Subject } from '@/lib/types';
+import type {
+  Assignment,
+  GradeBreakdown,
+  OriginalityReport,
+  Question,
+  Submission,
+  Subject,
+} from '@/lib/types';
 
 function fmtResponse(r: unknown): string {
   if (r == null || r === '') return '—';
   if (Array.isArray(r)) return r.join(', ');
   return String(r);
+}
+
+type OrigLevel = 'green' | 'amber' | 'red';
+
+// Severity of the originality signal — flagged is red, a single elevated signal
+// is amber, otherwise green. A hint for the teacher, never an automatic penalty.
+function origLevel(o?: OriginalityReport | null): OrigLevel | null {
+  if (!o) return null;
+  if (o.flagged) return 'red';
+  if (o.similarity >= 40 || o.ai_likelihood >= 50) return 'amber';
+  return 'green';
+}
+
+function origBarColor(pct: number): string {
+  if (pct >= 60) return '#dc2626';
+  if (pct >= 40) return '#d97706';
+  return '#16a34a';
 }
 
 export default function Grading() {
@@ -38,6 +63,10 @@ export default function Grading() {
 
   // Map question id → question (so the teacher sees each prompt next to the answer).
   const questionsById: Record<string, Question> = Object.fromEntries((active?.questions ?? []).map((q) => [q.id, q]));
+  // Map submission id → student name, so an originality match can name the peer.
+  const subNameById: Record<number, string> = Object.fromEntries(
+    subs.map((s) => [s.id, names[s.student_id] ?? `O'quvchi #${s.student_id}`]),
+  );
 
   return (
     <div className="max-w-4xl">
@@ -72,6 +101,7 @@ export default function Grading() {
                 studentName={names[s.student_id] ?? `O'quvchi #${s.student_id}`}
                 subjectName={subject?.name ?? 'Fan'}
                 questionsById={questionsById}
+                subNameById={subNameById}
               />
             ))}
             {active && subs.length === 0 && <p className="text-slate-400 text-sm">Bu vazifaga topshirish yo'q.</p>}
@@ -87,11 +117,13 @@ function GradeRow({
   studentName,
   subjectName,
   questionsById,
+  subNameById,
 }: {
   sub: Submission;
   studentName: string;
   subjectName: string;
   questionsById: Record<string, Question>;
+  subNameById: Record<number, string>;
 }) {
   const [rating, setRating] = useState(4);
   const [comment, setComment] = useState('');
@@ -99,9 +131,12 @@ function GradeRow({
   const [sent, setSent] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [origOpen, setOrigOpen] = useState(false);
   const g = sub.grade;
   const pct = g?.percent ?? 0;
   const breakdown = g?.breakdown ?? [];
+  const orig = sub.originality;
+  const lvl = origLevel(orig);
 
   const suggest = async () => {
     setAiBusy(true);
@@ -139,12 +174,15 @@ function GradeRow({
           <div className="text-xs text-slate-400">{new Date(sub.submitted_at).toLocaleString()}</div>
         </div>
         <div className="flex items-center gap-2 text-sm">
+          {lvl && <OriginalityChip level={lvl} open={origOpen} onClick={() => setOrigOpen((o) => !o)} />}
           <span className="font-semibold">{pct}%</span>
           <Badge color="green">avto {g?.objective_score}</Badge>
           <Badge color="violet">🤖 {g?.ai_score}</Badge>
           {g && <AiBadge provider={g.ai_provider} />}
         </div>
       </div>
+
+      {origOpen && orig && <OriginalityPanel orig={orig} subNameById={subNameById} />}
 
       <div className="flex items-center gap-3 mb-2">
         <div className="flex-1"><PercentBar percent={pct} /></div>
@@ -193,6 +231,70 @@ function GradeRow({
         </div>
       )}
     </Card>
+  );
+}
+
+const CHIP_STYLES: Record<OrigLevel, string> = {
+  green: 'border-green-200 text-green-700 dark:border-green-800 dark:text-green-300',
+  amber: 'border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-300',
+  red: 'border-red-200 text-red-700 dark:border-red-800 dark:text-red-300',
+};
+const CHIP_LABEL: Record<OrigLevel, string> = { green: 'Original', amber: "E'tibor", red: 'Shubhali' };
+
+function OriginalityChip({ level, open, onClick }: { level: OrigLevel; open: boolean; onClick: () => void }) {
+  const Icon = level === 'green' ? ShieldCheck : ShieldAlert;
+  return (
+    <button
+      onClick={onClick}
+      title="Original'lik tekshiruvi"
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700/50 ${CHIP_STYLES[level]} ${open ? 'ring-1 ring-current' : ''}`}
+    >
+      <Icon size={14} />
+      {CHIP_LABEL[level]}
+    </button>
+  );
+}
+
+function OriginalityPanel({
+  orig,
+  subNameById,
+}: {
+  orig: OriginalityReport;
+  subNameById: Record<number, string>;
+}) {
+  const matched = orig.matched_submission_ids ?? [];
+  const topName = matched.length ? subNameById[matched[0]] ?? `#${matched[0]}` : null;
+  const extra = matched.slice(1).map((id) => subNameById[id] ?? `#${id}`);
+  return (
+    <div className="mb-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 p-3 text-sm space-y-2">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-slate-500">Nusxa o'xshashligi</span>
+            <span className="font-semibold">{orig.similarity}%</span>
+          </div>
+          <PercentBar percent={orig.similarity} color={origBarColor(orig.similarity)} />
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-slate-500">AI-yozilgan ehtimoli</span>
+            <span className="font-semibold">{orig.ai_likelihood}%</span>
+          </div>
+          <PercentBar percent={orig.ai_likelihood} color={origBarColor(orig.ai_likelihood)} />
+        </div>
+      </div>
+
+      {topName && (
+        <div className="text-slate-600 dark:text-slate-300">
+          🔗 O'xshash: <span className="font-medium">{topName}</span> bilan {orig.similarity}%
+          {extra.length > 0 && <span className="text-slate-400"> · yana {extra.join(', ')}</span>}
+        </div>
+      )}
+
+      <div className="text-xs text-slate-400">
+        Bu faqat signal. Yakuniy qaror o'qituvchida.
+      </div>
+    </div>
   );
 }
 
