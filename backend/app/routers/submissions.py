@@ -16,6 +16,7 @@ from app.originality import build_report
 from app.schemas import GradeOverrideIn, SubmissionIn
 from app.serialize import audit_out, originality_out, submission_out
 from app.services.audit import audit_log
+from app.services.billing import ai_graded_this_month, current_features, require_feature
 from app.services.grading import grade_submission
 from app.services.notify import create_notification
 
@@ -35,6 +36,19 @@ async def submit(
     assignment = await db.get(Assignment, payload.assignment_id)
     if not assignment:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "vazifa topilmadi")
+
+    # Feature gate: Free tier has a monthly AI-grading quota.
+    feats = await current_features(db, student.id)
+    has_ai = any(
+        q.get("ai_graded") or q.get("type") in ("short", "essay") for q in (assignment.questions or [])
+    )
+    if has_ai:
+        limit = feats.get("ai_grading_limit")
+        if limit is not None and await ai_graded_this_month(db, student.id) >= limit:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"Free tarifda oyiga {limit} ta AI baholash mavjud. Tarifni yangilang.",
+            )
 
     sub = Submission(
         assignment_id=assignment.id, student_id=student.id,
@@ -61,9 +75,10 @@ async def submit(
         status="pending" if result["rubric_breakdown"] else "approved",
     )
     db.add(grade)
-    # award XP proportional to percent
-    if result["max_score"]:
-        student.xp += round(result["total_score"] / result["max_score"] * 100)
+    # award XP proportional to percent — gated by plan (Free: no XP rewards).
+    if result["max_score"] and feats.get("xp_rewards"):
+        pct = round(result["total_score"] / result["max_score"] * 100)
+        student.xp += pct * int(feats.get("xp_multiplier", 1) or 1)
 
     # Audit trail: the AI made a grading decision (user_id null = AI/system).
     db.add(audit_log(None, "ai_graded", "submission", sub.id, {
@@ -124,9 +139,15 @@ async def get_submission(submission_id: int, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/{submission_id}/originality")
-async def submission_originality(submission_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+async def submission_originality(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
     """Originality signal for a submission (teacher view). Built on demand if
-    missing. A SIGNAL only — the teacher makes the final call."""
+    missing. A SIGNAL only — the teacher makes the final call. Plagiarism is a
+    paid feature, so the viewer's plan is checked."""
+    await require_feature(db, user.id, "plagiarism")
     s = await db.get(Submission, submission_id)
     if not s:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "topshiriq topilmadi")

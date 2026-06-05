@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
@@ -19,7 +19,10 @@ import {
 } from 'lucide-react';
 
 import Logo from '@/components/Logo';
+import PricingCards from '@/components/PricingCards';
 import { Avatar, Badge, ConfidenceBadge, PercentBar } from '@/components/ui';
+import { api } from '@/lib/api';
+import type { Plan } from '@/lib/types';
 
 function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -53,6 +56,7 @@ function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; 
 const NAV_LINKS = [
   { href: '#features', label: 'Imkoniyatlar' },
   { href: '#how', label: 'Qanday ishlaydi' },
+  { href: '#pricing', label: 'Tariflar' },
   { href: '#trust', label: 'Ishonch' },
 ];
 
@@ -329,6 +333,29 @@ function Trust() {
   );
 }
 
+function Pricing() {
+  const [plans, setPlans] = useState<Plan[] | null>(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    api.get<Plan[]>('/billing/plans').then(setPlans).catch(() => {});
+  }, []);
+  return (
+    <section id="pricing" className="bg-slate-50 dark:bg-slate-900/40 border-y border-slate-200/60 dark:border-slate-800/60">
+      <div className="max-w-6xl mx-auto px-4 py-20">
+        <Reveal className="text-center max-w-2xl mx-auto mb-10">
+          <h2 className="text-3xl font-bold tracking-tight">Soddа va shaffof tariflar</h2>
+          <p className="mt-3 text-slate-600 dark:text-slate-300">Bepul boshlang, kerak bo'lganda kengaytiring. Yillik to'lovda 20% chegirma.</p>
+        </Reveal>
+        {plans && (
+          <Reveal>
+            <PricingCards plans={plans} ctaLabel="Tanlash" onSelect={() => navigate('/register')} />
+          </Reveal>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function CTASection() {
   return (
     <section className="max-w-6xl mx-auto px-4 pb-20">
@@ -382,6 +409,7 @@ export default function Landing() {
       <Stats />
       <Features />
       <HowItWorks />
+      <Pricing />
       <Trust />
       <CTASection />
       <Footer />

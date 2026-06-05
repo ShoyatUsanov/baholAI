@@ -21,6 +21,8 @@ from app.models import (
     Notification,
     OriginalityReport,
     Payment,
+    Plan,
+    Subscription,
     ScheduleEntry,
     Submission,
     Subject,
@@ -187,7 +189,28 @@ def attendance_out(a: Attendance) -> dict:
 def payment_out(p: Payment) -> dict:
     return {
         "id": p.id, "student_id": p.student_id, "amount": p.amount, "currency": p.currency,
-        "period": p.period, "status": p.status, "group_id": p.group_id, "created_at": _iso(p.created_at),
+        "period": p.period, "status": p.status, "group_id": p.group_id,
+        "plan_code": p.plan_code, "billing_cycle": p.billing_cycle, "method": p.method,
+        "created_at": _iso(p.created_at),
+    }
+
+
+def plan_out(p: Plan) -> dict:
+    return {
+        "id": p.id, "code": p.code, "name": p.name,
+        "price_monthly": p.price_monthly, "price_yearly": p.price_yearly,
+        "features": p.features or {}, "order_idx": p.order_idx,
+    }
+
+
+def subscription_out(s: Subscription | None, days_left: int | None = None) -> dict | None:
+    if not s:
+        return None
+    return {
+        "id": s.id, "user_id": s.user_id, "plan_code": s.plan_code,
+        "billing_cycle": s.billing_cycle, "status": s.status,
+        "started_at": _iso(s.started_at), "expires_at": _iso(s.expires_at),
+        "auto_renew": s.auto_renew, "days_left": days_left,
     }
 
 

@@ -371,6 +371,50 @@ export interface ConfidenceBucket {
   agreement_rate: number;
 }
 
+export interface PlanFeatures {
+  ai_grading_limit: number | null;
+  plagiarism: boolean;
+  explainability: string;
+  analytics: string | false;
+  flashcards: string;
+  tests: string;
+  xp_rewards: boolean;
+  xp_multiplier: number;
+  priority_appeal: boolean;
+  support: string;
+}
+
+export interface Plan {
+  id: number;
+  code: string;
+  name: string;
+  price_monthly: number;
+  price_yearly: number;
+  features: PlanFeatures;
+  order_idx: number;
+}
+
+export interface Subscription {
+  id: number;
+  user_id: number;
+  plan_code: string;
+  billing_cycle: string;
+  status: 'active' | 'canceled' | 'expired';
+  started_at: string | null;
+  expires_at: string | null;
+  auto_renew: boolean;
+  days_left: number | null;
+  user_name?: string;
+  username?: string | null;
+}
+
+export interface MySubscription {
+  plan_code: string;
+  plan: Plan | null;
+  subscription: Subscription | null;
+  features: PlanFeatures;
+}
+
 export interface AiAgreement {
   agreement_rate: number;
   total_graded: number;

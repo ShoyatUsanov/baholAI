@@ -1,14 +1,16 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   BarChart3, BookMarked, BookOpen, Building2, CalendarCheck, CalendarDays, ChevronsLeft,
-  ChevronsRight, ClipboardList, FolderKanban, Gauge, GraduationCap, Home, KeySquare, Layers,
-  LogOut, Megaphone, MessageSquare, Moon, PenLine, PieChart, Scale, Shield, Sun, TrendingUp,
-  User, Users, Wallet,
+  ChevronsRight, ClipboardList, CreditCard, FolderKanban, Gauge, GraduationCap, Home, KeySquare,
+  Layers, LogOut, Megaphone, MessageSquare, Moon, PenLine, PieChart, Receipt, Scale, Shield, Sun,
+  Tags, TrendingUp, User, Users, Wallet,
 } from 'lucide-react';
 
 import Logo from '@/components/Logo';
+import PlanBadge from '@/components/PlanBadge';
 import { Avatar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { useSubscription } from '@/lib/billing';
 import { useTheme } from '@/lib/theme';
 import type { Role } from '@/lib/types';
 
@@ -27,6 +29,7 @@ export const NAV: Record<Role, Item[]> = {
     { to: '/student/schedule', label: 'Jadval', icon: CalendarDays },
     { to: '/student/attendance', label: 'Davomat', icon: CalendarCheck },
     { to: '/student/payments', label: "To'lovlar", icon: Wallet },
+    { to: '/billing', label: 'Obuna', icon: CreditCard },
     { to: '/messages', label: 'Xabarlar', icon: MessageSquare },
   ],
   teacher: [
@@ -42,6 +45,7 @@ export const NAV: Record<Role, Item[]> = {
     { to: '/teacher/schedule', label: 'Jadval', icon: CalendarDays },
     { to: '/teacher/attendance', label: 'Davomat', icon: CalendarCheck },
     { to: '/teacher/payments', label: "To'lovlar", icon: Wallet },
+    { to: '/billing', label: 'Obuna', icon: CreditCard },
     { to: '/teacher/announcements', label: "E'lonlar", icon: Megaphone },
     { to: '/messages', label: 'Xabarlar', icon: MessageSquare },
   ],
@@ -51,6 +55,8 @@ export const NAV: Record<Role, Item[]> = {
     { to: '/admin/users', label: 'Foydalanuvchilar', icon: Users },
     { to: '/admin/subjects', label: 'Fanlar', icon: BookMarked },
     { to: '/admin/api-keys', label: 'API kalitlar', icon: KeySquare },
+    { to: '/admin/plans', label: 'Tariflar', icon: Tags },
+    { to: '/admin/subscriptions', label: 'Obunalar', icon: Receipt },
     { to: '/ai-confidence', label: 'AI Ishonch', icon: Gauge },
     { to: '/teacher/announcements', label: "E'lonlar", icon: Megaphone },
   ],
@@ -60,6 +66,8 @@ export const NAV: Record<Role, Item[]> = {
     { to: '/admin/users', label: 'Foydalanuvchilar', icon: Users },
     { to: '/admin/subjects', label: 'Fanlar', icon: BookMarked },
     { to: '/admin/api-keys', label: 'API kalitlar', icon: KeySquare },
+    { to: '/admin/plans', label: 'Tariflar', icon: Tags },
+    { to: '/admin/subscriptions', label: 'Obunalar', icon: Receipt },
     { to: '/ai-confidence', label: 'AI Ishonch', icon: Gauge },
     { to: '/teacher/announcements', label: "E'lonlar", icon: Megaphone },
   ],
@@ -83,6 +91,7 @@ export default function Sidebar({
 }) {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
+  const { planCode } = useSubscription();
   const navigate = useNavigate();
   if (!user) return null;
   const items = NAV[user.role];
@@ -144,7 +153,10 @@ export default function Sidebar({
         <div className={`flex items-center gap-2.5 px-1 ${collapsed ? 'lg:justify-center' : ''}`}>
           <Avatar name={user.name} size="sm" />
           <div className={`min-w-0 ${hide}`}>
-            <div className="text-sm font-semibold truncate">{user.name}</div>
+            <div className="text-sm font-semibold truncate flex items-center gap-1.5">
+              {user.name}
+              {(user.role === 'student' || user.role === 'teacher') && <PlanBadge code={planCode} />}
+            </div>
             <div className="text-xs text-primary-600 dark:text-primary-400">{ROLE_LABEL[user.role]}</div>
           </div>
         </div>

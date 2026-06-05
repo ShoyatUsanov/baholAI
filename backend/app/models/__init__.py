@@ -368,7 +368,40 @@ class Payment(Base):
     period: Mapped[str] = mapped_column(String(20))  # e.g. 2026-06
     status: Mapped[str] = mapped_column(String(10), default="pending")  # paid|pending|overdue
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
+    # Subscription payments (vs group tuition).
+    plan_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    billing_cycle: Mapped[str | None] = mapped_column(String(10), nullable=True)  # monthly|yearly
+    method: Mapped[str] = mapped_column(String(20), default="mock")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Plan(Base):
+    """A subscription tier (free/medium/premium) — admin-editable price + features."""
+
+    __tablename__ = "plans"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)  # free|medium|premium
+    name: Mapped[str] = mapped_column(String(60))
+    price_monthly: Mapped[int] = mapped_column(Integer, default=0)  # so'm
+    price_yearly: Mapped[int] = mapped_column(Integer, default=0)
+    features: Mapped[dict] = mapped_column(JSON, default=dict)
+    order_idx: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Subscription(Base):
+    """A user's current subscription. Absence = free tier."""
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    plan_code: Mapped[str] = mapped_column(String(20), default="free")
+    billing_cycle: Mapped[str] = mapped_column(String(10), default="monthly")  # monthly|yearly
+    status: Mapped[str] = mapped_column(String(12), default="active")  # active|expired|canceled
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    auto_renew: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Message(Base):
@@ -480,5 +513,7 @@ __all__ = [
     "Activity",
     "AuditLog",
     "Appeal",
+    "Plan",
+    "Subscription",
     "now",
 ]

@@ -31,8 +31,10 @@ from app.models import (
     Message,
     Notification,
     Payment,
+    Plan,
     ScheduleEntry,
     Session,
+    Subscription,
     Subject,
     Submission,
     Test,
@@ -40,6 +42,7 @@ from app.models import (
 )
 from app.originality import build_report
 from app.services.audit import audit_log
+from app.services.billing import PLAN_DEFS, cycle_expiry
 from app.services.grading import grade_submission
 
 # ---------------------------------------------------------------------------
@@ -506,6 +509,42 @@ async def run() -> None:
             await db.flush()
             db.add(audit_log(s2.student_id, "appeal_opened", "appeal", ap_res.id, {"submission_id": s2.id}))
             db.add(audit_log(math_teacher.id, "appeal_resolved", "appeal", ap_res.id, {"response": "qayta baholandi"}))
+
+        # ---- Subscription plans + sample subscriptions (VAZIFA A) ----
+        plan_by_code: dict[str, Plan] = {}
+        for pd in PLAN_DEFS:
+            p = Plan(
+                code=pd["code"], name=pd["name"], price_monthly=pd["price_monthly"],
+                price_yearly=pd["price_yearly"], features=pd["features"], order_idx=pd["order_idx"],
+            )
+            db.add(p)
+            plan_by_code[pd["code"]] = p
+        await db.flush()
+
+        all_users = {u.username: u for u in students}
+        all_users.update({t.username: t for t in teachers.values()})
+        # (username, plan_code, billing_cycle) — others stay free (no row).
+        _SAMPLE_SUBS = [
+            ("student1", "premium", "yearly"),
+            ("student2", "medium", "monthly"),
+            ("student4", "medium", "yearly"),
+            ("teacher_matematika", "premium", "monthly"),
+            ("teacher_ingliz_tili", "medium", "yearly"),
+        ]
+        for uname, code, cycle in _SAMPLE_SUBS:
+            u = all_users.get(uname)
+            if not u:
+                continue
+            db.add(Subscription(
+                user_id=u.id, plan_code=code, billing_cycle=cycle, status="active",
+                expires_at=cycle_expiry(cycle), auto_renew=True,
+            ))
+            plan = plan_by_code[code]
+            amount = plan.price_yearly if cycle == "yearly" else plan.price_monthly
+            db.add(Payment(
+                student_id=u.id, amount=amount, currency="UZS", period="2026-06",
+                status="paid", plan_code=code, billing_cycle=cycle, method="mock",
+            ))
 
         # ---- Collections, lessons, decks, tests (per subject) ----
         for slug, cols in COLLECTIONS.items():

@@ -8,6 +8,7 @@ import type { Role } from './lib/types';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
+import Billing from './pages/Billing';
 import InstallPrompt from './components/InstallPrompt';
 
 // Student
@@ -62,6 +63,8 @@ import Institutions from './pages/admin/Institutions';
 import Users from './pages/admin/Users';
 import AdminSubjects from './pages/admin/Subjects';
 import ApiKeys from './pages/admin/ApiKeys';
+import AdminPlans from './pages/admin/Plans';
+import AdminSubscriptions from './pages/admin/Subscriptions';
 
 const ANY: Role[] = ['student', 'teacher', 'institution_admin', 'superadmin'];
 const ADMIN: Role[] = ['institution_admin', 'superadmin'];
@@ -113,6 +116,7 @@ export default function App() {
       <Route path="/notifications" element={g(ANY, <Notifications />)} />
       <Route path="/profile" element={g(ANY, <Profile />)} />
       <Route path="/settings" element={g(ANY, <Settings />)} />
+      <Route path="/billing" element={g(ANY, <Billing />)} />
 
       {/* Teacher */}
       <Route path="/teacher" element={g(['teacher'], <TeacherDashboard />)} />
@@ -137,6 +141,8 @@ export default function App() {
       <Route path="/admin/users" element={g(ADMIN, <Users />)} />
       <Route path="/admin/subjects" element={g(ADMIN, <AdminSubjects />)} />
       <Route path="/admin/api-keys" element={g(ADMIN, <ApiKeys />)} />
+      <Route path="/admin/plans" element={g(ADMIN, <AdminPlans />)} />
+      <Route path="/admin/subscriptions" element={g(ADMIN, <AdminSubscriptions />)} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

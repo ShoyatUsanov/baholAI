@@ -1,9 +1,11 @@
-import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, CalendarClock, LogOut } from 'lucide-react';
 
+import PlanBadge from '@/components/PlanBadge';
 import { Card, Spinner, Stat, Button } from '@/components/ui';
 import { PageHeader } from '@/components/Layout';
 import { useAuth } from '@/lib/auth';
+import { useSubscription } from '@/lib/billing';
 import type { Role } from '@/lib/types';
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -15,9 +17,12 @@ const ROLE_LABEL: Record<Role, string> = {
 
 export default function Profile() {
   const { user, logout } = useAuth();
+  const { planCode, data } = useSubscription();
   const navigate = useNavigate();
 
   if (!user) return <Spinner />;
+  const sub = data?.subscription;
+  const showBilling = user.role === 'student' || user.role === 'teacher';
 
   return (
     <div>
@@ -36,6 +41,25 @@ export default function Profile() {
         <Stat label="Daraja" value={user.level ?? '—'} />
         <Stat label="XP" value={user.xp} />
       </div>
+
+      {showBilling && (
+        <Card className="p-5 mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">Obuna:</span>
+              <PlanBadge code={planCode} />
+            </div>
+            {sub?.days_left != null && (
+              <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
+                <CalendarClock size={15} /> {sub.days_left} kun qoldi
+              </span>
+            )}
+            <Link to="/billing" className="btn btn-outline ml-auto">
+              {planCode === 'free' ? 'Tarifni tanlash' : "O'zgartirish"} <ArrowRight size={16} />
+            </Link>
+          </div>
+        </Card>
+      )}
 
       <Button variant="outline" onClick={() => { logout(); navigate('/login'); }}>
         <LogOut size={16} className="mr-1.5" />

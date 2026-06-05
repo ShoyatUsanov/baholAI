@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import FeatureLock from '@/components/FeatureLock';
 import { Card, PercentBar, Stat } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -16,6 +17,7 @@ export default function Dashboard() {
   if (!a) return <div className="text-slate-400">Yuklanmoqda…</div>;
 
   return (
+    <FeatureLock feature="analytics" title="Kengaytirilgan analitika — Medium yoki Premium kerak">
     <div className="max-w-5xl">
       <h1 className="text-2xl font-bold mb-1">Salom, {user?.name} 👋</h1>
       <p className="text-slate-500 mb-5">Sizning o'quv ko'rsatkichlaringiz</p>
@@ -62,5 +64,6 @@ export default function Dashboard() {
         {a.recent.length === 0 && <div className="px-4 py-3 text-slate-400 text-sm">Bo'sh</div>}
       </Card>
     </div>
+    </FeatureLock>
   );
 }

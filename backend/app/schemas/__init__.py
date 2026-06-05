@@ -75,6 +75,17 @@ class AppealResolveIn(BaseModel):
     teacher_response: str
 
 
+class SubscribeIn(BaseModel):
+    plan_code: str
+    billing_cycle: str = "monthly"  # monthly | yearly
+
+
+class PlanUpdateIn(BaseModel):
+    price_monthly: int | None = None
+    price_yearly: int | None = None
+    features: dict[str, Any] | None = None
+
+
 class FeedbackIn(BaseModel):
     submission_id: int
     rating: int = 5

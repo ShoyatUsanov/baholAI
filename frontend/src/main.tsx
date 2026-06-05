@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ToastProvider } from './components/Toast';
 import { AuthProvider } from './lib/auth';
+import { SubscriptionProvider } from './lib/billing';
 import { NotificationProvider } from './lib/notifications';
 import { ThemeProvider } from './lib/theme';
 import './styles.css';
@@ -15,9 +16,11 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <AuthProvider>
           <ToastProvider>
-            <NotificationProvider>
-              <App />
-            </NotificationProvider>
+            <SubscriptionProvider>
+              <NotificationProvider>
+                <App />
+              </NotificationProvider>
+            </SubscriptionProvider>
           </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
