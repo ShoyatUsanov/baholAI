@@ -36,6 +36,7 @@ import TestRunner from './pages/learning/TestRunner';
 import Messages from './pages/shared/Messages';
 import Notifications from './pages/shared/Notifications';
 import Profile from './pages/shared/Profile';
+import Settings from './pages/shared/Settings';
 
 // Teacher
 import TeacherDashboard from './pages/teacher/Dashboard';
@@ -109,6 +110,7 @@ export default function App() {
       <Route path="/messages" element={g(ANY, <Messages />)} />
       <Route path="/notifications" element={g(ANY, <Notifications />)} />
       <Route path="/profile" element={g(ANY, <Profile />)} />
+      <Route path="/settings" element={g(ANY, <Settings />)} />
 
       {/* Teacher */}
       <Route path="/teacher" element={g(['teacher'], <TeacherDashboard />)} />
