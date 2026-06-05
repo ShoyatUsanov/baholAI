@@ -7,7 +7,20 @@
 
 ---
 
-## 🚀 Demo (jurilar uchun)
+## 🌐 Jonli demo
+
+**👉 [baholai.onrender.com](https://baholai.onrender.com)**
+
+<!-- DEPLOY QILGACH: yuqoridagi havolani o'zingizning Render/Railway manzilingizga almashtiring -->
+> ⏳ Bepul serverda birinchi ochilish ~30–60 soniya (server "uyg'onadi"), keyin tez ishlaydi.
+> Taqdimotdan oldin havolani bir marta ochib qo'ying.
+
+**Demo akkauntlar:** o'qituvchi `teacher_matematika` / `teacher123` · o'quvchi
+`student1` / `student123` · admin `admin` / `admin123`
+
+---
+
+## 🚀 Demo qanday ishga tushadi (jurilar uchun)
 
 Loyiha **bitta Docker xizmati** — backend ham API, ham frontend'ni bitta manzildan
 beradi. Online deploy yoki lokal Docker bilan **bitta havola** orqali ishlaydi
