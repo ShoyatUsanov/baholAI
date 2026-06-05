@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.db import init_db
@@ -32,9 +35,28 @@ from app.routers import (
 settings = get_settings()
 
 
+async def _seed_if_empty() -> None:
+    """Populate demo data on a fresh deploy so judges land on a working app."""
+    from sqlalchemy import func, select
+
+    from app.db import SessionLocal
+    from app.models import User
+
+    async with SessionLocal() as session:
+        count = (await session.execute(select(func.count()).select_from(User))).scalar() or 0
+    if count == 0:
+        from seed import run as seed_run  # backend/seed.py
+        await seed_run()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    if settings.auto_seed:
+        try:
+            await _seed_if_empty()
+        except Exception as exc:  # never block startup on seeding
+            print(f"[seed] skipped: {exc}")
     yield
 
 
@@ -71,3 +93,22 @@ app.include_router(public_api.router, prefix="/api/v1", tags=["public-api"])
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok", "app": settings.app_name}
+
+
+# ---- Serve the built frontend (single-service deploy) -------------------
+# When STATIC_DIR points at the built frontend, FastAPI serves it from the same
+# origin as the API — so /api calls work with no CORS and judges open one URL.
+_static = Path(settings.static_dir) if settings.static_dir else None
+if _static and _static.is_dir():
+    _assets = _static / "assets"
+    if _assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def spa(full_path: str):
+        if full_path.startswith("api"):
+            raise HTTPException(status_code=404)
+        candidate = _static / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(_static / "index.html"))  # SPA fallback

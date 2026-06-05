@@ -25,3 +25,6 @@ frontend/dev-dist/
 .idea/
 .vscode/
 *.log
+
+# Single-service deploy: built frontend copied into backend (Docker only)
+backend/static/

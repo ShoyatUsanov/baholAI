@@ -7,6 +7,22 @@
 
 ---
 
+## 🚀 Demo (jurilar uchun)
+
+Loyiha **bitta Docker xizmati** — backend ham API, ham frontend'ni bitta manzildan
+beradi. Online deploy yoki lokal Docker bilan **bitta havola** orqali ishlaydi
+(AI fallback rejimida, hech qanday kalit kerak emas). To'liq qo'llanma: **[DEPLOY.md](DEPLOY.md)**.
+
+```bash
+docker build -t baholai .   &&   docker run -p 8002:8002 baholai
+# Brauzerda: http://localhost:8002
+```
+
+**Demo akkauntlar:** o'qituvchi `teacher_matematika`/`teacher123` · o'quvchi
+`student1`/`student123` · admin `admin`/`admin123`.
+
+---
+
 ## Muammo va yechim
 
 Oliy ta'lim va fan vazirligi yo'nalishlariga ("Smart Edu — Raqamli Ta'lim",

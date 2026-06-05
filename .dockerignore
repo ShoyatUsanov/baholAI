@@ -1,0 +1,16 @@
+# Keep the build context small + never ship local state/secrets
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.db
+**/*.sqlite
+**/.env
+**/.env.*
+frontend/dist
+frontend/dev-dist
+backend/static
+.git
+.github
+docs
+*.md

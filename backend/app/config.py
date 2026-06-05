@@ -20,6 +20,12 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+aiosqlite:///./baholai.db"
 
+    # Production single-service deploy: serve the built frontend from this dir
+    # (empty = API only, for local dev with Vite). Auto-seed demo data if the DB
+    # is empty (so a fresh cloud deploy has working demo accounts).
+    static_dir: str = ""
+    auto_seed: bool = False
+
     # Simple opaque-token auth (sessions live in the DB). Basic on purpose.
     token_ttl_days: int = 30
 
