@@ -396,6 +396,9 @@ async def run() -> None:
                     grade.was_changed = True
                     grade.needs_review = False
                     grade.total_score = round(grade.objective_score + max(0.0, grade.ai_score - 1.5), 1)
+                # Demo: student5's draft awaits teacher approval (human-in-the-loop).
+                if slug == "matematika" and st.username == "student5":
+                    grade.status = "pending"
                 db.add(grade)
                 pct = round(result["total_score"] / result["max_score"] * 100) if result["max_score"] else 0
                 st.xp += pct

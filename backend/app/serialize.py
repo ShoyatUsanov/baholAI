@@ -72,7 +72,7 @@ def grade_out(g: Grade | None) -> dict | None:
         "breakdown": g.breakdown, "ai_provider": g.ai_provider,
         "rubric_breakdown": g.rubric_breakdown or [],
         "confidence": g.confidence, "needs_review": g.needs_review,
-        "was_changed": g.was_changed,
+        "was_changed": g.was_changed, "status": g.status,
     }
 
 

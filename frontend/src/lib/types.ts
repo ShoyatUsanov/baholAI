@@ -87,6 +87,7 @@ export interface Grade {
   confidence: number;
   needs_review: boolean;
   was_changed: boolean;
+  status: 'pending' | 'approved';
 }
 
 export interface OriginalityReport {

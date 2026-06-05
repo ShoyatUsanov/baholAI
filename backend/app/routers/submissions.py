@@ -1,19 +1,27 @@
 """Submissions — student submits; auto + AI grading runs immediately."""
 from __future__ import annotations
 
+import asyncio
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_user, require_roles
-from app.models import Assignment, Grade, OriginalityReport, Submission, User
+from app.models import Assignment, Grade, OriginalityReport, Session, Submission, User
 from app.originality import build_report
 from app.schemas import GradeOverrideIn, SubmissionIn
 from app.serialize import originality_out, submission_out
 from app.services.grading import grade_submission
 
 router = APIRouter()
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -47,6 +55,8 @@ async def submit(
         rubric_breakdown=result["rubric_breakdown"],
         confidence=result["confidence"],
         needs_review=result["needs_review"],
+        # AI-graded (open) answers land as a draft awaiting teacher approval.
+        status="pending" if result["rubric_breakdown"] else "approved",
     )
     db.add(grade)
     # award XP proportional to percent
@@ -112,6 +122,84 @@ async def submission_originality(submission_id: int, db: AsyncSession = Depends(
         report = await build_report(s.id, db)
         await db.commit()
     return originality_out(report)
+
+
+@router.get("/{submission_id}/grade-stream")
+async def grade_stream(
+    submission_id: int,
+    token: str = "",
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Replay a submission's grade as Server-Sent Events for the live "jonly
+    baholash" animation. Auth via ?token= because EventSource can't set headers.
+    All data is read up-front so the generator never touches the DB session."""
+    if not token or not await db.get(Session, token):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token kerak")
+    sub = await db.get(Submission, submission_id)
+    if not sub:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topshiriq topilmadi")
+    grade = (await db.execute(select(Grade).where(Grade.submission_id == sub.id))).scalar_one_or_none()
+    report = (
+        await db.execute(select(OriginalityReport).where(OriginalityReport.submission_id == sub.id))
+    ).scalar_one_or_none()
+
+    criteria = list((grade.rubric_breakdown if grade else None) or [])
+    originality = {
+        "similarity": report.similarity if report else 0,
+        "ai_likelihood": report.ai_likelihood if report else 0,
+    }
+    confidence = {
+        "confidence": grade.confidence if grade else 0,
+        "needs_review": grade.needs_review if grade else False,
+    }
+    done = {
+        "total": round(sum(float(c.get("points_given", 0) or 0) for c in criteria), 1),
+        "max_total": round(sum(float(c.get("max_points", 0) or 0) for c in criteria), 1),
+        "score": grade.total_score if grade else 0,
+        "max_score": grade.max_score if grade else 0,
+        "percent": round(grade.total_score / grade.max_score * 100) if grade and grade.max_score else 0,
+        "status": grade.status if grade else "approved",
+    }
+
+    async def event_gen():
+        try:
+            for c in criteria:
+                yield _sse("criterion", {
+                    "criterion": c.get("criterion"),
+                    "points_given": c.get("points_given"),
+                    "max_points": c.get("max_points"),
+                })
+                await asyncio.sleep(0.4)
+            yield _sse("originality", originality)
+            await asyncio.sleep(0.4)
+            yield _sse("confidence", confidence)
+            await asyncio.sleep(0.4)
+            yield _sse("done", done)
+        except asyncio.CancelledError:  # client closed the EventSource
+            return
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
+    )
+
+
+@router.post("/{submission_id}/grade/approve")
+async def approve_grade(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db),
+    teacher: User = Depends(require_roles("teacher", "institution_admin", "superadmin")),
+) -> dict:
+    """Teacher approves a draft AI grade — it then becomes visible to the student."""
+    grade = (
+        await db.execute(select(Grade).where(Grade.submission_id == submission_id))
+    ).scalar_one_or_none()
+    if not grade:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "baho topilmadi")
+    grade.status = "approved"
+    await db.commit()
+    return {"submission_id": submission_id, "status": "approved"}
 
 
 @router.patch("/{submission_id}/grade")

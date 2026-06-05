@@ -23,6 +23,18 @@ export default function Result() {
       <Link to="/student/assignments" className="text-sm text-slate-500 hover:text-indigo-600">← Vazifalar</Link>
       <h1 className="text-2xl font-bold mt-2 mb-4">Natija</h1>
 
+      {g.status === 'pending' ? (
+        <div className="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
+          ⏳ Natija o'qituvchi tasdig'ini kutmoqda. Quyidagi balllar AI taklifi — yakuniy emas.
+        </div>
+      ) : (
+        g.rubric_breakdown?.length > 0 && (
+          <div className="mb-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 p-3 text-sm text-green-700 dark:text-green-300">
+            ✓ Natija o'qituvchi tomonidan tasdiqlangan.
+          </div>
+        )
+      )}
+
       <Card className="p-5 mb-5">
         <div className="flex items-end justify-between mb-2">
           <div className="text-4xl font-bold">{g.percent}%</div>

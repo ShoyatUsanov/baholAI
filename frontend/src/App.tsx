@@ -12,6 +12,7 @@ import Home from './pages/student/Home';
 import StudentAnalytics from './pages/student/Dashboard';
 import StudentAssignments from './pages/student/Assignments';
 import DoAssignment from './pages/student/DoAssignment';
+import GradingLive from './pages/student/GradingLive';
 import Result from './pages/student/Result';
 import StudentFeedback from './pages/student/Feedback';
 import Activity from './pages/student/Activity';
@@ -83,6 +84,7 @@ export default function App() {
       <Route path="/student/analytics" element={g(['student'], <StudentAnalytics />)} />
       <Route path="/student/assignments" element={g(['student'], <StudentAssignments />)} />
       <Route path="/student/assignments/:id" element={g(['student'], <DoAssignment />)} />
+      <Route path="/student/grading/:submissionId" element={g(['student'], <GradingLive />)} />
       <Route path="/student/result/:submissionId" element={g(['student'], <Result />)} />
       <Route path="/student/feedback" element={g(['student'], <StudentFeedback />)} />
       <Route path="/student/activity" element={g(['student'], <Activity />)} />

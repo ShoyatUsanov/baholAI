@@ -188,6 +188,17 @@ function GradeRow({
     }
   };
 
+  const [approving, setApproving] = useState(false);
+  const approve = async () => {
+    setApproving(true);
+    try {
+      await api.post(`/submissions/${sub.id}/grade/approve`);
+      onChanged();
+    } finally {
+      setApproving(false);
+    }
+  };
+
   const suggest = async () => {
     setAiBusy(true);
     try {
@@ -236,6 +247,17 @@ function GradeRow({
       </div>
 
       {origOpen && orig && <OriginalityPanel orig={orig} subNameById={subNameById} />}
+
+      {g?.status === 'pending' && (
+        <div className="mb-3 flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-2.5">
+          <span className="text-sm text-amber-800 dark:text-amber-200 flex-1">
+            ⏳ Draft — o'quvchiga hali ko'rinmaydi. AI bahosini tasdiqlaysizmi?
+          </span>
+          <Button onClick={approve} disabled={approving} className="whitespace-nowrap">
+            {approving ? '…' : '✓ Tasdiqlash'}
+          </Button>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mb-2">
         <div className="flex-1"><PercentBar percent={pct} /></div>

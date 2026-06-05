@@ -24,7 +24,7 @@ export default function DoAssignment() {
     setBusy(true);
     try {
       const sub = await api.post<Submission>('/submissions', { assignment_id: a.id, answers });
-      navigate(`/student/result/${sub.id}`);
+      navigate(`/student/grading/${sub.id}`);
     } finally {
       setBusy(false);
     }

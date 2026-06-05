@@ -156,6 +156,8 @@ class Grade(Base):
     rubric_breakdown: Mapped[list] = mapped_column(JSON, default=list)
     confidence: Mapped[int] = mapped_column(Integer, default=100)         # 0..100
     needs_review: Mapped[bool] = mapped_column(Boolean, default=False)    # low confidence
+    # Human-in-the-loop: AI grades land as a draft until a teacher approves.
+    status: Mapped[str] = mapped_column(String(12), default="approved")   # pending|approved
     # ai_score above keeps the ORIGINAL AI estimate; when a teacher overrides the
     # score we update total_score and flag this, so the diff stays auditable.
     was_changed: Mapped[bool] = mapped_column(Boolean, default=False)
