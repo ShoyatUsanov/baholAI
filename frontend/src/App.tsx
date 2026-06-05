@@ -8,6 +8,7 @@ import type { Role } from './lib/types';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
+import InstallPrompt from './components/InstallPrompt';
 
 // Student
 import Home from './pages/student/Home';
@@ -78,7 +79,8 @@ const g = (roles: Role[], el: ReactNode) => <Guard roles={roles}>{el}</Guard>;
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -137,6 +139,8 @@ export default function App() {
       <Route path="/admin/api-keys" element={g(ADMIN, <ApiKeys />)} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+      <InstallPrompt />
+    </>
   );
 }

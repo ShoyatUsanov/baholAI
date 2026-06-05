@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LogOut, Menu, Search, Settings, User } from 'lucide-react';
 
 import NotificationBell from '@/components/NotificationBell';
+import OfflineIndicator from '@/components/OfflineIndicator';
 import { Avatar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 
@@ -19,6 +20,7 @@ export default function Topbar({ title, onMenu }: { title: string; onMenu: () =>
       </button>
 
       <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
+      <OfflineIndicator />
 
       <div className="flex-1" />
 
