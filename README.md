@@ -7,13 +7,16 @@
 
 ---
 
-## 🌐 Jonli demo
+## 🔗 Jurilar uchun havolalar
 
-**👉 [baholai.onrender.com](https://baholai.onrender.com)**
+| | Havola | Nima beradi |
+|---|---|---|
+| 💻 **Kod (GitHub)** | [github.com/ShoyatUsanov/baholAI](https://github.com/ShoyatUsanov/baholAI) | Butun manba kodi, README, commit tarixi |
+| 🌐 **Jonli demo** | [baholai.onrender.com](https://baholai.onrender.com) | Ishlaydigan sayt (deploy qilingach) |
 
-<!-- DEPLOY QILGACH: yuqoridagi havolani o'zingizning Render/Railway manzilingizga almashtiring -->
+<!-- DEPLOY QILGACH: jonli demo havolasini o'zingizning Render/Railway manzilingizga almashtiring -->
 > ⏳ Bepul serverda birinchi ochilish ~30–60 soniya (server "uyg'onadi"), keyin tez ishlaydi.
-> Taqdimotdan oldin havolani bir marta ochib qo'ying.
+> Taqdimotdan oldin havolani bir marta ochib qo'ying. To'liq qo'llanma: **[DEPLOY.md](DEPLOY.md)**.
 
 **Demo akkauntlar:** o'qituvchi `teacher_matematika` / `teacher123` · o'quvchi
 `student1` / `student123` · admin `admin` / `admin123`
