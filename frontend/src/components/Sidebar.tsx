@@ -3,7 +3,7 @@ import {
   BarChart3, BookMarked, BookOpen, Building2, CalendarCheck, CalendarDays, ChevronsLeft,
   ChevronsRight, ClipboardList, CreditCard, FolderKanban, Gauge, GraduationCap, Home, KeySquare,
   Layers, LogOut, Megaphone, MessageSquare, Moon, PenLine, PieChart, Receipt, Scale, Shield, Sun,
-  Tags, TrendingUp, User, Users, Wallet,
+  Tags, TrendingUp, User, Users, UserCog, Wallet,
 } from 'lucide-react';
 
 import Logo from '@/components/Logo';
@@ -34,6 +34,7 @@ export const NAV: Record<Role, Item[]> = {
   ],
   teacher: [
     { to: '/teacher', label: 'Boshqaruv', icon: BarChart3, end: true },
+    { to: '/teacher/students', label: "O'quvchilarim", icon: UserCog },
     { to: '/teacher/statistics', label: 'Statistika', icon: PieChart },
     { to: '/teacher/grading', label: 'Baholash', icon: GraduationCap },
     { to: '/teacher/appeals', label: "E'tirozlar", icon: Scale },

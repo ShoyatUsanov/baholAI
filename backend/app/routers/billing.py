@@ -11,7 +11,16 @@ from app.deps import get_current_user
 from app.models import Payment, Plan, Subscription, User, now
 from app.schemas import SubscribeIn
 from app.serialize import plan_out, subscription_out
-from app.services.billing import current_features, cycle_expiry, days_left, is_active, latest_subscription
+from app.services.billing import (
+    count_students,
+    current_features,
+    cycle_expiry,
+    days_left,
+    is_active,
+    latest_subscription,
+    monthly_cost,
+    student_cap,
+)
 from app.services.notify import create_notification
 
 router = APIRouter()
@@ -32,11 +41,17 @@ async def my_subscription(
     active = is_active(sub)
     code = sub.plan_code if active else "free"
     plan = (await db.execute(select(Plan).where(Plan.code == code))).scalar_one_or_none()
+    feats = await current_features(db, user.id)
+    n_students = await count_students(db, user.id)
+    cap = student_cap(feats)
     return {
         "plan_code": code,
         "plan": plan_out(plan) if plan else None,
         "subscription": subscription_out(sub, days_left(sub)) if active else None,
-        "features": await current_features(db, user.id),
+        "features": feats,
+        "student_count": n_students,
+        "student_cap": cap,
+        "current_monthly_cost": monthly_cost(feats, plan.price_monthly if plan else 0, "monthly", n_students),
     }
 
 
@@ -50,7 +65,12 @@ async def subscribe(
     if not plan:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "tarif topilmadi")
     cycle = "yearly" if payload.billing_cycle == "yearly" else "monthly"
-    amount = plan.price_yearly if cycle == "yearly" else plan.price_monthly
+    # Per-member plans bill per current student; fixed plans are flat.
+    if (plan.features or {}).get("per_member"):
+        cycle = "monthly"
+        amount = monthly_cost(plan.features or {}, plan.price_monthly, cycle, await count_students(db, user.id))
+    else:
+        amount = plan.price_yearly if cycle == "yearly" else plan.price_monthly
 
     # Supersede any current subscription.
     for s in (await db.execute(select(Subscription).where(Subscription.user_id == user.id, Subscription.status == "active"))).scalars().all():

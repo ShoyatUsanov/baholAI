@@ -53,7 +53,7 @@ def user_out(u: User) -> dict:
     return {
         "id": u.id, "role": u.role, "name": u.name, "username": u.username,
         "institution_id": u.institution_id, "subject_id": u.subject_id,
-        "level": u.level, "xp": u.xp, "active": u.active,
+        "teacher_id": u.teacher_id, "level": u.level, "xp": u.xp, "active": u.active,
     }
 
 

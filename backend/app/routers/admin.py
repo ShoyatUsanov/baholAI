@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import require_roles
 from app.models import ApiKey, Institution, Payment, Plan, Subject, Subscription, User
-from app.schemas import ApiKeyIn, InstitutionIn, PlanUpdateIn, UserCreateIn
+from app.roster_import import parse_roster
+from app.schemas import ApiKeyIn, InstitutionIn, PlanUpdateIn, UserCreateIn, UserUpdateIn
 from app.serialize import api_key_out, institution_out, plan_out, subscription_out, user_out
 from app.services.billing import days_left
 
@@ -55,7 +56,7 @@ async def list_users(
     if subject_id:
         q = q.where(User.subject_id == subject_id)
     rows = (await db.execute(q)).scalars().all()
-    return [user_out(u) for u in rows]
+    return [{**user_out(u), "password": u.password} for u in rows]
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
@@ -77,6 +78,51 @@ async def create_user(payload: UserCreateIn, db: AsyncSession = Depends(get_db),
     await db.commit()
     await db.refresh(u)
     return user_out(u)
+
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int, payload: UserUpdateIn, db: AsyncSession = Depends(get_db), _: User = Depends(ADMIN),
+) -> dict:
+    u = await db.get(User, user_id)
+    if not u:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "foydalanuvchi topilmadi")
+    if payload.username and payload.username != u.username:
+        if (await db.execute(select(User).where(User.username == payload.username))).scalar_one_or_none():
+            raise HTTPException(status.HTTP_409_CONFLICT, "bunday username band")
+        u.username = payload.username
+    if payload.name is not None:
+        u.name = payload.name
+    if payload.password:
+        u.password = payload.password
+    if payload.level is not None:
+        u.level = payload.level
+    if payload.subject_id is not None:
+        u.subject_id = payload.subject_id
+    await db.commit()
+    await db.refresh(u)
+    return {**user_out(u), "password": u.password}
+
+
+@router.post("/users/import")
+async def import_users(
+    file: UploadFile = File(...), db: AsyncSession = Depends(get_db), _: User = Depends(ADMIN),
+) -> dict:
+    """Bulk-create students from an uploaded .xlsx/.csv file."""
+    rows = parse_roster(await file.read(), file.filename or "")
+    if not rows:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Fayldan foydalanuvchi topilmadi (ustunlar: ism, login, parol, daraja)")
+    existing = {u for (u,) in (await db.execute(select(User.username))).all()}
+    created, skipped = 0, []
+    for r in rows:
+        if r["username"] in existing:
+            skipped.append({"username": r["username"], "reason": "username band"})
+            continue
+        db.add(User(role="student", name=r["name"], username=r["username"], password=r["password"], level=r["level"]))
+        existing.add(r["username"])
+        created += 1
+    await db.commit()
+    return {"created": created, "skipped": skipped, "total": len(rows)}
 
 
 # ---- API keys -----------------------------------------------------------

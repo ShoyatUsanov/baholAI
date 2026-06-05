@@ -8,6 +8,11 @@ type Cycle = 'monthly' | 'yearly';
 
 function featureRows(f: PlanFeatures): { label: string; value: boolean | string }[] {
   return [
+    {
+      label: "O'quvchilar",
+      value: f.per_member ? `Har biri ${formatSom(12000)}/oy` : f.max_students == null ? 'Cheksiz' : `${f.max_students} tagacha`,
+    },
+    { label: 'Guruhlar', value: f.max_groups == null ? 'Cheksiz' : `${f.max_groups} ta` },
     { label: 'AI baholash', value: f.ai_grading_limit == null ? 'Cheksiz' : `Oyiga ${f.ai_grading_limit} ta` },
     { label: 'Plagiat & AI-detektor', value: f.plagiarism },
     { label: 'Tushuntiriladigan baholar', value: f.explainability === 'full' ? "To'liq" : 'Asosiy' },
@@ -56,9 +61,10 @@ export default function PricingCards({
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-5 items-start">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
         {sorted.map((p) => {
           const popular = p.code === 'medium';
+          const perMember = p.features.per_member;
           const price = cycle === 'yearly' ? p.price_yearly : p.price_monthly;
           const isCurrent = currentCode === p.code;
           return (
@@ -77,7 +83,12 @@ export default function PricingCards({
               )}
               <div className="font-bold text-lg">{p.name}</div>
               <div className="mt-2 flex items-end gap-1">
-                {price === 0 ? (
+                {perMember ? (
+                  <>
+                    <span className="text-3xl font-extrabold">{formatSom(p.price_monthly)}</span>
+                    <span className="text-sm text-slate-400 mb-1">/o'quvchi/oy</span>
+                  </>
+                ) : price === 0 ? (
                   <span className="text-3xl font-extrabold">Bepul</span>
                 ) : (
                   <>
@@ -86,9 +97,11 @@ export default function PricingCards({
                   </>
                 )}
               </div>
-              {cycle === 'yearly' && p.price_monthly > 0 && (
+              {perMember ? (
+                <div className="text-xs text-slate-400 mt-0.5">Faqat ishlatganingiz uchun</div>
+              ) : cycle === 'yearly' && p.price_monthly > 0 ? (
                 <div className="text-xs text-slate-400 mt-0.5">~{formatSom(Math.round(p.price_yearly / 12))}/oy</div>
-              )}
+              ) : null}
 
               <ul className="mt-5 space-y-2.5">
                 {featureRows(p.features).map((r) => (

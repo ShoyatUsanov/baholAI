@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CalendarClock, XCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CalendarClock, Users, XCircle } from 'lucide-react';
 
 import HelpBanner from '@/components/HelpBanner';
 import { PageHeader } from '@/components/Layout';
@@ -8,11 +9,14 @@ import PricingCards from '@/components/PricingCards';
 import { useToast } from '@/components/Toast';
 import { Button, Card, Spinner } from '@/components/ui';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useSubscription } from '@/lib/billing';
+import { formatSom } from '@/lib/format';
 import type { Plan } from '@/lib/types';
 
 export default function Billing() {
   const { data, reload } = useSubscription();
+  const { user } = useAuth();
   const toast = useToast();
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -79,6 +83,23 @@ export default function Billing() {
             </Button>
           )}
         </div>
+
+        {user?.role === 'teacher' && data.student_count != null && (
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+              <Users size={15} className="text-primary-500" />
+              {data.student_count}{data.student_cap != null ? ` / ${data.student_cap}` : ''} o'quvchi
+            </span>
+            <span className="text-slate-400">·</span>
+            <span className="text-slate-600 dark:text-slate-300">
+              Oylik to'lov: <b>{formatSom(data.current_monthly_cost ?? 0)}</b>
+              {data.features?.per_member && <span className="text-slate-400"> ({data.student_count} × {formatSom(12000)})</span>}
+            </span>
+            <Link to="/teacher/students" className="text-primary-600 dark:text-primary-400 hover:underline ml-auto">
+              O'quvchilarni boshqarish →
+            </Link>
+          </div>
+        )}
       </Card>
 
       <h2 className="text-xl font-bold text-center mb-1">Tarifni tanlang</h2>

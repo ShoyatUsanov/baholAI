@@ -7,9 +7,25 @@ export interface User {
   username: string;
   institution_id: number | null;
   subject_id: number | null;
+  teacher_id?: number | null;
   level: string | null;
   xp: number;
   active: boolean;
+}
+
+export interface TeacherStudent extends User {
+  password?: string;
+  attempts: number;
+  avg_percent: number | null;
+  last_active: string | null;
+}
+
+export interface RosterResponse {
+  students: TeacherStudent[];
+  count: number;
+  cap: number | null;
+  plan_code: string;
+  can_add: boolean;
 }
 
 export interface Subject {
@@ -403,6 +419,9 @@ export interface ConfidenceBucket {
 }
 
 export interface PlanFeatures {
+  max_students?: number | null;
+  max_groups?: number | null;
+  per_member?: boolean;
   ai_grading_limit: number | null;
   plagiarism: boolean;
   explainability: string;
@@ -444,6 +463,9 @@ export interface MySubscription {
   plan: Plan | null;
   subscription: Subscription | null;
   features: PlanFeatures;
+  student_count?: number;
+  student_cap?: number | null;
+  current_monthly_cost?: number;
 }
 
 export interface AiAgreement {

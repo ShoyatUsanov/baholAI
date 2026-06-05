@@ -63,6 +63,8 @@ class User(Base):
     institution_id: Mapped[int | None] = mapped_column(ForeignKey("institutions.id"), nullable=True)
     # For teachers: the subject they teach. Students are subject-agnostic.
     subject_id: Mapped[int | None] = mapped_column(ForeignKey("subjects.id"), nullable=True)
+    # For students added by a teacher: whose roster they're on (seat billing).
+    teacher_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     level: Mapped[str | None] = mapped_column(String(40), nullable=True)
     xp: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -43,6 +43,7 @@ import Settings from './pages/shared/Settings';
 // Teacher
 import TeacherDashboard from './pages/teacher/Dashboard';
 import TeacherStatistics from './pages/teacher/Statistics';
+import TeacherStudents from './pages/teacher/Students';
 import AiConfidence from './pages/teacher/AiConfidence';
 import Appeals from './pages/teacher/Appeals';
 import TeacherAssignments from './pages/teacher/Assignments';
@@ -121,6 +122,7 @@ export default function App() {
       {/* Teacher */}
       <Route path="/teacher" element={g(['teacher'], <TeacherDashboard />)} />
       <Route path="/teacher/statistics" element={g(['teacher'], <TeacherStatistics />)} />
+      <Route path="/teacher/students" element={g(['teacher'], <TeacherStudents />)} />
       <Route path="/ai-confidence" element={g(TEACHER_ADMIN, <AiConfidence />)} />
       <Route path="/teacher/assignments" element={g(['teacher'], <TeacherAssignments />)} />
       <Route path="/teacher/create" element={g(['teacher'], <CreateAssignment />)} />

@@ -345,12 +345,18 @@ async def run() -> None:
                      password="teacher123", institution_id=uni.id, subject_id=subjects[slug].id)
             db.add(t)
             teachers[slug] = t
+        await db.flush()  # teacher ids needed for the student roster
 
-        # Students
+        # Students — each on a teacher's roster (seat billing).
+        ROSTER = {
+            "student1": "matematika", "student2": "matematika", "student3": "matematika",
+            "student4": "matematika", "student5": "fizika", "student6": "fizika",
+        }
         students: list[User] = []
         for name, username, level in STUDENTS:
             st = User(role="student", name=name, username=username, password="student123",
-                      institution_id=uni.id, level=level)
+                      institution_id=uni.id, level=level,
+                      teacher_id=teachers[ROSTER.get(username, "matematika")].id)
             db.add(st)
             students.append(st)
         await db.flush()
@@ -528,13 +534,11 @@ async def run() -> None:
 
         all_users = {u.username: u for u in students}
         all_users.update({t.username: t for t in teachers.values()})
-        # (username, plan_code, billing_cycle) — others stay free (no row).
+        # Teachers subscribe (seat billing). (username, plan_code, cycle) — rest stay free.
         _SAMPLE_SUBS = [
-            ("student1", "premium", "yearly"),
-            ("student2", "medium", "monthly"),
-            ("student4", "medium", "yearly"),
-            ("teacher_matematika", "premium", "monthly"),
-            ("teacher_ingliz_tili", "medium", "yearly"),
+            ("teacher_matematika", "medium", "monthly"),    # 4 o'quvchi / 75 limit
+            ("teacher_fizika", "per_member", "monthly"),    # 2 o'quvchi × 12 000
+            ("teacher_informatika", "premium", "monthly"),  # cheksiz
         ]
         for uname, code, cycle in _SAMPLE_SUBS:
             u = all_users.get(uname)
@@ -545,7 +549,10 @@ async def run() -> None:
                 expires_at=cycle_expiry(cycle), auto_renew=True,
             ))
             plan = plan_by_code[code]
-            amount = plan.price_yearly if cycle == "yearly" else plan.price_monthly
+            if plan.features.get("per_member"):
+                amount = plan.price_monthly * sum(1 for s in students if s.teacher_id == u.id)
+            else:
+                amount = plan.price_yearly if cycle == "yearly" else plan.price_monthly
             db.add(Payment(
                 student_id=u.id, amount=amount, currency="UZS", period="2026-06",
                 status="paid", plan_code=code, billing_cycle=cycle, method="mock",

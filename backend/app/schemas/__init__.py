@@ -57,6 +57,21 @@ class AssignmentIn(BaseModel):
     due_at: datetime | None = None
 
 
+class TeacherStudentIn(BaseModel):
+    name: str
+    username: str
+    password: str
+    level: str | None = None
+
+
+class UserUpdateIn(BaseModel):
+    name: str | None = None
+    username: str | None = None
+    password: str | None = None
+    level: str | None = None
+    subject_id: int | None = None
+
+
 class SubmissionIn(BaseModel):
     assignment_id: int
     answers: dict[str, Any] = {}

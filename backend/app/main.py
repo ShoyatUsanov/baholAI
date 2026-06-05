@@ -25,6 +25,7 @@ from app.routers import (
     public_api,
     subjects,
     submissions,
+    teacher,
     users,
 )
 
@@ -56,6 +57,7 @@ app.include_router(appeals.router, prefix="/api/appeals", tags=["appeals"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(billing.router, prefix="/api/billing", tags=["billing"])
 app.include_router(fingerprints.router, prefix="/api/fingerprints", tags=["fingerprints"])
+app.include_router(teacher.router, prefix="/api/teacher", tags=["teacher"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])

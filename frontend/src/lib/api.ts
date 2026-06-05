@@ -33,10 +33,31 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return res.json() as Promise<T>;
 }
 
+async function upload<T>(path: string, file: File): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`/api${path}`, { method: 'POST', headers, body: fd });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      detail = j.detail || detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail);
+  }
+  return res.json() as Promise<T>;
+}
+
 export const api = {
   get: <T>(p: string) => request<T>('GET', p),
   post: <T>(p: string, body?: unknown) => request<T>('POST', p, body ?? {}),
   put: <T>(p: string, body?: unknown) => request<T>('PUT', p, body ?? {}),
   patch: <T>(p: string, body?: unknown) => request<T>('PATCH', p, body ?? {}),
   del: <T>(p: string) => request<T>('DELETE', p),
+  upload,
 };
