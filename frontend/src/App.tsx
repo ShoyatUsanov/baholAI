@@ -6,6 +6,8 @@ import { useAuth } from './lib/auth';
 import type { Role } from './lib/types';
 
 import Login from './pages/Login';
+import Register from './pages/Register';
+import Landing from './pages/Landing';
 
 // Student
 import Home from './pages/student/Home';
@@ -74,11 +76,11 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 const g = (roles: Role[], el: ReactNode) => <Guard roles={roles}>{el}</Guard>;
 
 export default function App() {
-  const { user } = useAuth();
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Navigate to={user ? homeFor(user.role) : '/login'} replace />} />
+      <Route path="/register" element={<Register />} />
 
       {/* Student */}
       <Route path="/student" element={g(['student'], <Home />)} />

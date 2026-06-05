@@ -6,9 +6,20 @@ const MARK_PX: Record<Size, number> = { sm: 28, md: 36, lg: 48 };
 const TEXT_CLS: Record<Size, string> = { sm: 'text-base', md: 'text-lg', lg: 'text-2xl' };
 const RADIUS: Record<Size, number> = { sm: 8, md: 10, lg: 13 };
 
-export default function Logo({ size = 'md', showText = true }: { size?: Size; showText?: boolean }) {
+export default function Logo({
+  size = 'md',
+  showText = true,
+  tone = 'default',
+}: {
+  size?: Size;
+  showText?: boolean;
+  tone?: 'default' | 'light';
+}) {
   const gid = useId();
   const px = MARK_PX[size];
+  const light = tone === 'light';
+  const rectFill = light ? '#ffffff' : `url(#${gid})`;
+  const textFill = light ? `url(#${gid})` : '#ffffff';
 
   return (
     <span className="inline-flex items-center gap-2.5 select-none">
@@ -19,7 +30,7 @@ export default function Logo({ size = 'md', showText = true }: { size?: Size; sh
             <stop offset="1" stopColor="#8B5CF6" />
           </linearGradient>
         </defs>
-        <rect width="40" height="40" rx={RADIUS[size]} fill={`url(#${gid})`} />
+        <rect width="40" height="40" rx={RADIUS[size]} fill={rectFill} />
         <text
           x="20"
           y="20"
@@ -29,7 +40,7 @@ export default function Logo({ size = 'md', showText = true }: { size?: Size; sh
           fontWeight="800"
           fontSize="21"
           letterSpacing="-1.5"
-          fill="#ffffff"
+          fill={textFill}
         >
           <tspan fontSize="17">b</tspan>
           <tspan fontSize="23" dx="-1.5">A</tspan>
@@ -38,8 +49,8 @@ export default function Logo({ size = 'md', showText = true }: { size?: Size; sh
 
       {showText && (
         <span className={`font-extrabold tracking-tight leading-none ${TEXT_CLS[size]}`}>
-          <span className="text-slate-900 dark:text-white">bahol</span>
-          <span className="text-brand-gradient">AI</span>
+          <span className={light ? 'text-white' : 'text-slate-900 dark:text-white'}>bahol</span>
+          <span className={light ? 'text-white/90' : 'text-brand-gradient'}>AI</span>
         </span>
       )}
     </span>

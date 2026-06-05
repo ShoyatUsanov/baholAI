@@ -69,7 +69,7 @@
   --text-muted: #9ca3af;
 }
 
-html { font-family: var(--font-sans); }
+html { font-family: var(--font-sans); scroll-behavior: smooth; }
 html, body, #root { height: 100%; }
 body { margin: 0; }
 

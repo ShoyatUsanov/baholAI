@@ -3,10 +3,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { api, getToken, setToken } from './api';
 import type { User } from './types';
 
+interface RegisterPayload {
+  name: string;
+  username: string;
+  email?: string;
+  password: string;
+  role: 'student' | 'teacher';
+}
+
 interface AuthCtx {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<User>;
+  register: (payload: RegisterPayload) => Promise<User>;
   logout: () => void;
 }
 
@@ -36,12 +45,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user;
   };
 
+  const register = async (payload: RegisterPayload) => {
+    const res = await api.post<{ token: string; user: User }>('/auth/register', payload);
+    setToken(res.token);
+    setUser(res.user);
+    return res.user;
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
   };
 
-  return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, login, register, logout }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => useContext(Ctx);

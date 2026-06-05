@@ -12,6 +12,14 @@ class LoginIn(BaseModel):
     password: str
 
 
+class RegisterIn(BaseModel):
+    name: str
+    username: str
+    password: str
+    email: str | None = None  # collected for UX; not persisted in basic mode
+    role: str = "student"      # student | teacher (admin can't self-register)
+
+
 class InstitutionIn(BaseModel):
     name: str
     kind: str = "university"
