@@ -3,7 +3,7 @@ import { GraduationCap, ShieldAlert, ShieldCheck, Trash2, Zap } from 'lucide-rea
 
 import HelpBanner from '@/components/HelpBanner';
 import { useToast } from '@/components/Toast';
-import { AiBadge, Badge, Button, Card, ConfidenceBadge, EmptyState, InfoTooltip, PageHeader, PercentBar, RubricBreakdown } from '@/components/ui';
+import { AiBadge, Badge, Button, Card, ConfidenceBadge, EmptyState, InfoTooltip, PageHeader, PercentBar, RubricBreakdown, VerificationBadge } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { FP_LABELS, GRADED_BY, HINTS } from '@/lib/labels';
@@ -315,8 +315,11 @@ function GradeRow({
 
       {rubric.length > 0 && (
         <div className="mb-3 rounded-lg bg-violet-50/60 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/60 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-semibold text-violet-900 dark:text-violet-200">🧠 AI rubrika bahosi</div>
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-violet-900 dark:text-violet-200">🧠 AI rubrika bahosi</span>
+              <VerificationBadge items={rubric} />
+            </div>
             {!editing ? (
               <button
                 onClick={() => { setAiVal(g ? Math.round((g.total_score - g.objective_score) * 10) / 10 : 0); setEditing(true); }}

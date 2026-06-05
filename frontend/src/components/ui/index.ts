@@ -14,4 +14,5 @@ export {
   Spinner,
   ConfidenceBadge,
   RubricBreakdown,
+  VerificationBadge,
 } from './feedback';

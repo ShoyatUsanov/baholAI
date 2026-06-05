@@ -83,49 +83,77 @@ def _evidence_for(keywords: list[str], sentences: list[str]) -> str:
     return best if best_hits > 0 else ""
 
 
+# Pass-3 scoring: points come ONLY from the classification bucket (no invented
+# numbers). Pass-1 buckets and their clarity (how decisive the call is).
+CLASS_FACTOR = {"to'liq": 1.0, "qisman": 0.5, "xato": 0.0, "yo'q": 0.0}
+CLASS_CLARITY = {"to'liq": 1.0, "yo'q": 0.9, "xato": 0.7, "qisman": 0.5}
+
+
 def _grade_criterion(criterion: dict, model_answer: str, answer: str, sentences: list[str], tokens: set[str]) -> dict:
+    """3-pass check for one rubric criterion: classify → find evidence → score."""
     max_points = float(criterion.get("max_points", 1) or 1)
     name = criterion.get("criterion") or "Mezon"
     keys = _keywords((criterion.get("description") or "") + " " + (model_answer or ""))
 
+    # ---- PASS 1: classification ----
     if not answer.strip():
-        return {
-            "criterion": name, "points_given": 0.0, "max_points": max_points,
-            "evidence": "", "suggestion": "Javob bo'sh — bu mezon bo'yicha yozing.",
-            "_confidence": 35.0,
-        }
-
-    if keys:
+        classification, matched, missing = "yo'q", [], keys
+    elif keys:
         stems = {_stem(t) for t in tokens if len(t) >= 4}
         matched = [k for k in keys if _hit(k, tokens, stems)]
         missing = [k for k in keys if not _hit(k, tokens, stems)]
         coverage = len(matched) / len(keys)
-        evidence = _evidence_for(matched or keys, sentences)
+        classification = "to'liq" if coverage >= 0.7 else "qisman" if coverage >= 0.35 else "xato"
     else:
         matched, missing = [], []
-        coverage = min(1.0, len(answer.split()) / 30.0)
-        evidence = sentences[0] if sentences else ""
+        words = len(answer.split())
+        classification = "to'liq" if words >= 20 else "qisman" if words >= 6 else "xato"
 
-    length_ok = len(answer.split()) >= 6
-    points = coverage * max_points
-    if length_ok and points < max_points:
-        points = min(max_points, points + 0.1 * max_points)
-    points = round(points, 1)
+    # ---- PASS 2: evidence extraction ----
+    evidence = ""
+    if classification in ("to'liq", "qisman"):
+        evidence = _evidence_for(matched or keys, sentences) or (sentences[0] if sentences else "")
+    evidence_found = bool(evidence)
+    note = "" if evidence_found or classification in ("xato", "yo'q") else "Qo'llab-quvvatlovchi matn topilmadi."
+    # No evidence to justify a positive call → cannot fully award (anti-hallucination).
+    if classification == "to'liq" and not evidence_found:
+        classification = "qisman"
 
-    if missing:
-        suggestion = "Quyidagilarni yoriting: " + ", ".join(missing[:4]) + "."
-    elif coverage >= 0.8:
-        suggestion = "Bu mezon yaxshi yoritilgan."
+    # ---- PASS 3: points (bucket × max_points only) ----
+    points = round(CLASS_FACTOR[classification] * max_points, 1)
+
+    if classification == "yo'q":
+        suggestion = "Javob bo'sh — bu mezon bo'yicha yozing."
+    elif classification == "xato":
+        suggestion = (
+            "Bu mezon yoritilmagan. Quyidagilarni qo'shing: " + ", ".join(missing[:4]) + "."
+            if missing else "Savolga to'g'ridan-to'g'ri javob bering."
+        )
+    elif classification == "qisman":
+        suggestion = (
+            "Quyidagilarni ham yoriting: " + ", ".join(missing[:4]) + "."
+            if missing else "Javobni misol va tafsilot bilan kengaytiring."
+        )
     else:
-        suggestion = "Javobni misol va tafsilot bilan kengaytiring."
-
-    # Confidence: clear when keywords are found and the answer is substantive.
-    confidence = _clamp(55 + coverage * 40 + (5 if length_ok else -20))
+        suggestion = "Bu mezon to'liq va aniq yoritilgan."
 
     return {
-        "criterion": name, "points_given": points, "max_points": max_points,
-        "evidence": evidence, "suggestion": suggestion, "_confidence": confidence,
+        "criterion": name, "classification": classification,
+        "points_given": points, "max_points": max_points,
+        "evidence": evidence, "evidence_note": note, "suggestion": suggestion,
+        "_evidence_found": evidence_found,
     }
+
+
+def _verify(rows: list[dict]) -> tuple[int, int]:
+    """Confidence + evidence coverage from the per-criterion passes."""
+    if not rows:
+        return 100, 100
+    found = sum(1 for r in rows if r["_evidence_found"])
+    coverage = round(found / len(rows) * 100)
+    clarity = sum(CLASS_CLARITY.get(r["classification"], 0.6) for r in rows) / len(rows)
+    confidence = int(_clamp(round(35 + coverage / 100 * 45 + clarity * 20)))
+    return confidence, coverage
 
 
 def _rule_based(prompt: str, model_answer: str, answer: str, max_score: float, rubric: list[dict]) -> dict:
@@ -133,14 +161,13 @@ def _rule_based(prompt: str, model_answer: str, answer: str, max_score: float, r
     tokens = set(_tokens(answer))
     rows = [_grade_criterion(c, model_answer, answer, sentences, tokens) for c in rubric]
 
+    confidence, coverage = _verify(rows)
     raw_total = round(sum(r["points_given"] for r in rows), 1)
     raw_max = round(sum(r["max_points"] for r in rows), 1) or 1.0
-    confidence = int(round(sum(r["_confidence"] for r in rows) / len(rows))) if rows else 100
-    breakdown = [{k: v for k, v in r.items() if k != "_confidence"} for r in rows]
+    breakdown = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
 
     # Scale to the question's max_score so the overall grade math stays consistent.
     score = round(raw_total / raw_max * max_score, 1)
-    pct = round(score / max_score * 100) if max_score else 0
     suggestions = [r["suggestion"] for r in breakdown if r["suggestion"]][:4]
 
     return {
@@ -148,12 +175,13 @@ def _rule_based(prompt: str, model_answer: str, answer: str, max_score: float, r
         "total": raw_total,
         "max_total": raw_max,
         "confidence": confidence,
-        "needs_review": confidence < REVIEW_THRESHOLD,
+        "needs_review": confidence < REVIEW_THRESHOLD or coverage < 50,
         "score": score,
         "max": max_score,
-        "rationale": f"Qoidaga-asoslangan rubrika bahosi (~{pct}%), har mezon dalili bilan.",
+        "rationale": f"3 bosqichli tekshiruv: dalil qamrovi {coverage}%.",
         "suggestions": suggestions,
         "provider": "fallback",
+        "verification": {"passes_completed": 3, "evidence_coverage": coverage},
     }
 
 
@@ -163,6 +191,7 @@ def _from_llm(data: dict, max_score: float, rubric: list[dict]) -> dict | None:
     if not isinstance(rows_in, list) or not rows_in:
         return None
     breakdown: list[dict] = []
+    ev_found = 0
     for i, r in enumerate(rows_in):
         if not isinstance(r, dict):
             return None
@@ -172,20 +201,31 @@ def _from_llm(data: dict, max_score: float, rubric: list[dict]) -> dict | None:
             pts = _clamp(float(r.get("points_given", 0)), 0.0, mx)
         except (TypeError, ValueError):
             return None
+        evidence = str(r.get("evidence") or "").strip()
+        ratio = pts / mx if mx else 0
+        classification = str(r.get("classification") or "").strip() or (
+            "to'liq" if ratio >= 0.8 else "qisman" if ratio >= 0.3 else "yo'q" if not evidence else "xato"
+        )
+        if evidence:
+            ev_found += 1
         breakdown.append({
             "criterion": str(r.get("criterion") or ref.get("criterion") or f"Mezon {i + 1}"),
+            "classification": classification,
             "points_given": round(pts, 1),
             "max_points": round(mx, 1),
-            "evidence": str(r.get("evidence") or "").strip(),
+            "evidence": evidence,
+            "evidence_note": "" if evidence else "Qo'llab-quvvatlovchi matn topilmadi.",
             "suggestion": str(r.get("suggestion") or "").strip(),
         })
 
     raw_total = round(sum(r["points_given"] for r in breakdown), 1)
     raw_max = round(sum(r["max_points"] for r in breakdown), 1) or 1.0
+    coverage = round(ev_found / len(breakdown) * 100) if breakdown else 0
     try:
         confidence = int(_clamp(float(data.get("confidence", 75))))
     except (TypeError, ValueError):
         confidence = 75
+    confidence = min(confidence, int(_clamp(50 + coverage / 2)))  # cap by evidence coverage
     score = round(raw_total / raw_max * max_score, 1)
     suggestions = [r["suggestion"] for r in breakdown if r["suggestion"]][:4]
     return {
@@ -193,12 +233,13 @@ def _from_llm(data: dict, max_score: float, rubric: list[dict]) -> dict | None:
         "total": raw_total,
         "max_total": raw_max,
         "confidence": confidence,
-        "needs_review": confidence < REVIEW_THRESHOLD,
+        "needs_review": confidence < REVIEW_THRESHOLD or coverage < 50,
         "score": score,
         "max": max_score,
-        "rationale": str(data.get("rationale") or "AI rubrika bahosi.").strip(),
+        "rationale": str(data.get("rationale") or f"3 bosqichli tekshiruv: dalil qamrovi {coverage}%.").strip(),
         "suggestions": suggestions,
         "provider": "ollama",
+        "verification": {"passes_completed": 3, "evidence_coverage": coverage},
     }
 
 
@@ -212,13 +253,15 @@ async def grade_open_answer(
     answer = student_answer or ""
 
     system = (
-        "Siz tajribali, xolis o'qituvchi-baholovchisiz. Talaba javobini berilgan "
-        "RUBRIKA mezonlari bo'yicha baholang. Har mezon uchun: ball bering, javobning "
-        "AYNAN qaysi qismi shu ballni oqlaganini 'evidence' sifatida ko'chiring va qisqa "
-        "tavsiya yozing. FAQAT JSON qaytaring: "
-        '{"rubric_breakdown":[{"criterion":"...","points_given":<son>,"max_points":<son>,'
-        '"evidence":"<javobdan ko\'chirma>","suggestion":"<tavsiya>"}],"confidence":<0..100>}. '
-        "Matnlar o'zbek tilida. 'confidence' — bahoga qanchalik ishonchingiz."
+        "Siz xolis o'qituvchi-baholovchisiz. Har RUBRIKA mezoni uchun 3 bosqich bajaring: "
+        "1) KLASSIFIKATSIYA — javobni 'to'liq'/'qisman'/'xato'/'yo'q' ga ajrating; "
+        "2) DALIL — javobning AYNAN qaysi qismi shu klassifikatsiyani oqlaydi (ko'chirma); "
+        "agar dalil bo'lmasa 'evidence' bo'sh qoldiring; "
+        "3) BALL — faqat klassifikatsiyaga ko'ra (to'liq=max, qisman=yarmi, xato/yo'q=0), o'zingizdan o'ylab topmang. "
+        "FAQAT JSON: "
+        '{"rubric_breakdown":[{"criterion":"...","classification":"to\'liq|qisman|xato|yo\'q",'
+        '"points_given":<son>,"max_points":<son>,"evidence":"<javobdan ko\'chirma>","suggestion":"<tavsiya>"}],'
+        '"confidence":<0..100>}. Matnlar o\'zbek tilida.'
     )
     rubric_view = [
         {"criterion": c.get("criterion"), "max_points": c.get("max_points"), "description": c.get("description")}

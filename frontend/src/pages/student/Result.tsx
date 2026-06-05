@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import HelpBanner from '@/components/HelpBanner';
 import { useToast } from '@/components/Toast';
-import { AiBadge, Badge, Button, Card, ConfidenceBadge, InfoTooltip, PercentBar, RubricBreakdown } from '@/components/ui';
+import { AiBadge, Badge, Button, Card, ConfidenceBadge, InfoTooltip, PercentBar, RubricBreakdown, VerificationBadge } from '@/components/ui';
 import { api } from '@/lib/api';
 import { GRADED_BY, HINTS } from '@/lib/labels';
 import type { Appeal, AuditEntry, Feedback, Submission } from '@/lib/types';
@@ -103,7 +103,10 @@ export default function Result() {
 
       {g.rubric_breakdown && g.rubric_breakdown.length > 0 && (
         <>
-          <h2 className="font-semibold mb-2">🧠 AI rubrika bahosi</h2>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <h2 className="font-semibold">🧠 AI rubrika bahosi</h2>
+            <VerificationBadge items={g.rubric_breakdown} />
+          </div>
           <Card className="p-4 mb-6">
             <RubricBreakdown items={g.rubric_breakdown} />
           </Card>

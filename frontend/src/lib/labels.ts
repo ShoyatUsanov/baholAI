@@ -29,6 +29,17 @@ export const GRADED_BY: Record<string, { label: string; hint: string }> = {
 
 export const FP_LABELS = ["To'g'ri yechim", 'Klassik xato', "To'liqmas"];
 
+// Pass-1 klassifikatsiya → o'zbekcha label + Badge rangi
+export const CLASSIFICATION: Record<string, { label: string; color: string }> = {
+  "to'liq": { label: "To'liq", color: 'success' },
+  qisman: { label: 'Qisman', color: 'warning' },
+  xato: { label: 'Xato', color: 'danger' },
+  "yo'q": { label: "Yo'q", color: 'slate' },
+};
+
+export const VERIFICATION_HINT =
+  "Har ball sizning javobingizdagi aniq matn bilan isbotlangan (3 bosqich: klassifikatsiya → dalil → ball). Bu AI xatosini kamaytiradi.";
+
 export const SUB_STATUS: Record<string, string> = {
   graded: 'Baholandi',
   submitted: 'Topshirildi',

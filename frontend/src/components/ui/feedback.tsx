@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { Badge } from './Badge';
+import { InfoTooltip } from './InfoTooltip';
+import { CLASSIFICATION, VERIFICATION_HINT } from '@/lib/labels';
 import type { RubricCriterion } from '@/lib/types';
 
 export function PercentBar({ percent, color }: { percent: number; color?: string }) {
@@ -77,12 +80,14 @@ export function RubricBreakdown({ items }: { items: RubricCriterion[] }) {
 }
 
 function RubricRow({ c }: { c: RubricCriterion }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const pct = c.max_points ? Math.round((c.points_given / c.max_points) * 100) : 0;
+  const cls = c.classification ? CLASSIFICATION[c.classification] : null;
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium flex-1">{c.criterion}</span>
+        {cls && <Badge color={cls.color}>{cls.label}</Badge>}
+        <span className="text-sm font-medium flex-1 min-w-0 truncate">{c.criterion}</span>
         <span className="text-sm font-semibold">{c.points_given}/{c.max_points}</span>
       </div>
       <div className="flex items-center gap-2 mt-1.5">
@@ -97,19 +102,41 @@ function RubricRow({ c }: { c: RubricCriterion }) {
         </button>
       </div>
       {open && (
-        <div className="mt-2 text-xs space-y-1">
+        <div className="mt-2 text-xs space-y-1.5">
           {c.evidence ? (
-            <div className="text-slate-600 dark:text-slate-300">
-              📌 Dalil: <i>"{c.evidence}"</i>
+            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border-l-2 border-primary-400 px-2.5 py-1.5 text-slate-700 dark:text-slate-200">
+              <span className="text-slate-400">Javobingizdan:</span> <i>«{c.evidence}»</i>
             </div>
           ) : (
-            <div className="text-slate-400">📌 Mos dalil topilmadi.</div>
+            <div className="text-slate-400">📌 {c.evidence_note || 'Mos dalil topilmadi.'}</div>
           )}
           {c.suggestion && (
-            <div className="text-secondary-700 dark:text-secondary-300">💡 Tavsiya: {c.suggestion}</div>
+            <div className="text-secondary-700 dark:text-secondary-300">💡 {c.suggestion}</div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+// "3 bosqichli tekshiruv" rozetkasi — dalil qamrovini rubric_breakdown'dan hisoblaydi.
+export function VerificationBadge({ items }: { items: RubricCriterion[] }) {
+  const checked = items.filter((c) => c.classification);
+  if (checked.length === 0) return null;
+  const coverage = Math.round((checked.filter((c) => c.evidence).length / checked.length) * 100);
+  const low = coverage < 50;
+  return (
+    <span className="inline-flex items-center gap-1 text-xs">
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${
+          low
+            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+            : 'bg-accent-100 text-accent-700 dark:bg-accent-900/40 dark:text-accent-300'
+        }`}
+      >
+        ✓ 3 bosqichli tekshiruv · dalil {coverage}%
+      </span>
+      <InfoTooltip text={VERIFICATION_HINT} />
+    </span>
   );
 }

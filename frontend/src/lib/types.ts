@@ -86,6 +86,8 @@ export interface RubricCriterion {
   points_given: number;
   max_points: number;
   evidence?: string;
+  evidence_note?: string;
+  classification?: string;
   suggestion?: string;
   question_id?: string;
 }
