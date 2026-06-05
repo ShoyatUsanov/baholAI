@@ -341,3 +341,18 @@ export interface TeacherStudentsResponse {
   total_assignments: number;
   students: TeacherStudentRow[];
 }
+
+export interface ConfidenceBucket {
+  bucket: string;
+  count: number;
+  agreement_rate: number;
+}
+
+export interface AiAgreement {
+  agreement_rate: number;
+  total_graded: number;
+  changed_count: number;
+  avg_delta: number;
+  confidence_calibration: ConfidenceBucket[];
+  time_saved_hours: number;
+}

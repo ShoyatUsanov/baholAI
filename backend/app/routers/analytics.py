@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+from app.deps import get_current_user
+from app.models import User
 from app.services import analytics as svc
 
 router = APIRouter()
@@ -35,3 +37,13 @@ async def assignments(teacher_id: int, db: AsyncSession = Depends(get_db)) -> di
 async def students(subject_id: int, db: AsyncSession = Depends(get_db)) -> dict:
     """Teacher view: roster of students with their engagement in the subject."""
     return await svc.teacher_students(db, subject_id)
+
+
+@router.get("/ai-agreement")
+async def ai_agreement(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Teacher↔AI agreement dashboard. Teacher → own subject; admin → all."""
+    subject_id = user.subject_id if user.role == "teacher" else None
+    return await svc.ai_agreement(db, subject_id)

@@ -418,6 +418,41 @@ async def run() -> None:
         for sub in all_subs:
             await build_report(sub.id, db)
 
+        # ---- AI agreement history (Prompt 3 dashboard) ----
+        # ~20 graded open answers on the matematika assignment with a deliberate
+        # calibration: high-confidence grades mostly stand (was_changed=False),
+        # low-confidence ones get corrected more often. ~75% overall agreement.
+        # Tuple: (confidence, ai_score, final_ai). was_changed = ai_score != final_ai.
+        math = assignments["matematika"]
+        _AGREEMENT_HISTORY = [
+            (98, 5.0, 5.0), (95, 4.5, 4.5), (93, 4.0, 4.0), (90, 4.5, 4.5),
+            (88, 5.0, 5.0), (96, 4.0, 4.0), (91, 3.5, 3.5), (86, 4.0, 3.0),   # 85-100: 1/8 changed
+            (83, 3.5, 3.5), (80, 4.0, 4.0), (78, 3.0, 3.0), (75, 3.5, 3.5),
+            (72, 4.0, 4.0), (74, 3.0, 1.5),                                   # 70-85: 1/6 changed
+            (68, 3.0, 3.0), (60, 2.5, 2.5), (55, 3.0, 1.0),                   # 50-70: 1/3 changed
+            (48, 2.0, 2.0), (40, 2.5, 0.5), (30, 3.0, 1.0),                   # 0-50: 2/3 changed
+        ]
+        objective = 5.0  # q1 (3) + q2 (2), assumed correct for these history rows
+        for i, (conf, ai_v, final_ai) in enumerate(_AGREEMENT_HISTORY):
+            st = students[i % len(students)]
+            hsub = Submission(
+                assignment_id=math.id, student_id=st.id, status="graded",
+                answers={"q1": "2 va 3", "q2": "4ac", "q3": "(baholash tarixi)"},
+            )
+            db.add(hsub)
+            await db.flush()
+            db.add(Grade(
+                submission_id=hsub.id,
+                objective_score=objective, ai_score=ai_v,
+                total_score=round(objective + final_ai, 1), max_score=10.0,
+                breakdown=[], ai_provider="fallback",
+                rubric_breakdown=[{
+                    "criterion": "Mazmun va to'g'rilik", "points_given": final_ai,
+                    "max_points": 5, "evidence": "", "suggestion": "",
+                }],
+                confidence=conf, needs_review=conf < 70, was_changed=abs(ai_v - final_ai) > 0.01,
+            ))
+
         # ---- Collections, lessons, decks, tests (per subject) ----
         for slug, cols in COLLECTIONS.items():
             subj = subjects[slug]

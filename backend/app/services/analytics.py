@@ -295,3 +295,62 @@ async def teacher_students(db: AsyncSession, subject_id: int) -> dict:
         })
     roster.sort(key=lambda r: (r["engaged"], r["percent"], r["completion"]), reverse=True)
     return {"subject_id": subject_id, "total_assignments": total_assignments, "students": roster}
+
+
+# Confidence buckets for calibration (lo inclusive, hi exclusive). 85-100 caps at 101.
+_CONF_BUCKETS = [("0-50", 0, 50), ("50-70", 50, 70), ("70-85", 70, 85), ("85-100", 85, 101)]
+# Rough minutes a teacher spends grading one open answer: manual vs AI-assisted.
+_MIN_MANUAL, _MIN_AI = 8, 3
+
+
+async def ai_agreement(db: AsyncSession, subject_id: int | None = None) -> dict:
+    """Teacher↔AI agreement dashboard: how often AI grades stand unchanged, the
+    confidence calibration, and the time the AI assist saves.
+
+    Only AI-graded (open) submissions count — identified by a non-empty
+    rubric_breakdown. The AI's score is ``ai_score`` and the human-final AI
+    portion is ``total_score - objective_score``.
+    """
+    q = (
+        select(Grade)
+        .join(Submission, Grade.submission_id == Submission.id)
+        .join(Assignment, Submission.assignment_id == Assignment.id)
+    )
+    if subject_id is not None:
+        q = q.where(Assignment.subject_id == subject_id)
+    grades = [g for g in (await db.execute(q)).scalars().all() if g.rubric_breakdown]
+
+    total = len(grades)
+    empty = {
+        "agreement_rate": 0, "total_graded": 0, "changed_count": 0, "avg_delta": 0,
+        "confidence_calibration": [
+            {"bucket": label, "count": 0, "agreement_rate": 0} for label, _, _ in _CONF_BUCKETS
+        ],
+        "time_saved_hours": 0,
+    }
+    if total == 0:
+        return empty
+
+    changed = [g for g in grades if g.was_changed]
+    unchanged = total - len(changed)
+    deltas = [abs(g.ai_score - (g.total_score - g.objective_score)) for g in changed]
+
+    calibration = []
+    for label, lo, hi in _CONF_BUCKETS:
+        bucket = [g for g in grades if lo <= (g.confidence or 0) < hi]
+        cnt = len(bucket)
+        agree = sum(1 for g in bucket if not g.was_changed)
+        calibration.append({
+            "bucket": label,
+            "count": cnt,
+            "agreement_rate": round(agree / cnt * 100) if cnt else 0,
+        })
+
+    return {
+        "agreement_rate": round(unchanged / total * 100),
+        "total_graded": total,
+        "changed_count": len(changed),
+        "avg_delta": round(sum(deltas) / len(deltas), 1) if deltas else 0,
+        "confidence_calibration": calibration,
+        "time_saved_hours": round((_MIN_MANUAL - _MIN_AI) * total / 60, 1),
+    }
