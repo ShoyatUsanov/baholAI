@@ -6,6 +6,7 @@ import {
   PenLine, FolderKanban, Menu, Moon, Sun, LogOut, Bell, GraduationCap, BookMarked, PieChart, Gauge, Scale,
 } from 'lucide-react';
 
+import Logo from '@/components/Logo';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 import type { Role } from '@/lib/types';
@@ -95,9 +96,8 @@ export default function Layout({ children }: { children: ReactNode }) {
           open ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 flex flex-col`}
       >
-        <div className="h-16 flex items-center gap-2 px-5 border-b border-slate-200 dark:border-slate-700">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-fuchsia-600 grid place-items-center text-white font-bold">b</div>
-          <span className="font-bold text-lg">bahol<span className="text-fuchsia-500">AI</span></span>
+        <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-700">
+          <Logo size="md" />
         </div>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {items.map(({ to, label, icon: Icon, end }) => (

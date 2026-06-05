@@ -1,51 +1,13 @@
 import { useState } from 'react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import type { RubricCriterion } from '@/lib/types';
-
-export function Card({
-  children,
-  className = '',
-  onClick,
-}: {
-  children: ReactNode;
-  className?: string;
-  onClick?: () => void;
-}) {
-  return (
-    <div className={`card ${className}`} onClick={onClick}>
-      {children}
-    </div>
-  );
-}
-
-export function Button({
-  variant = 'primary',
-  className = '',
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'accent' | 'outline' | 'ghost' | 'ai' }) {
-  return <button {...props} className={`btn btn-${variant} ${className}`} />;
-}
-
-const BADGE_COLORS: Record<string, string> = {
-  slate: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
-  primary: 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-200',
-  accent: 'bg-accent-100 text-accent-700 dark:bg-accent-900/40 dark:text-accent-200',
-  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
-  violet: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200',
-  red: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200',
-  green: 'bg-accent-100 text-accent-700 dark:bg-accent-900/40 dark:text-accent-200',
-};
-
-export function Badge({ children, color = 'slate' }: { children: ReactNode; color?: string }) {
-  return <span className={`badge ${BADGE_COLORS[color] ?? BADGE_COLORS.slate}`}>{children}</span>;
-}
 
 export function PercentBar({ percent, color }: { percent: number; color?: string }) {
   return (
     <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
       <div
-        className="h-full rounded-full bg-primary-600"
+        className={`h-full rounded-full transition-[width] duration-500 ${color ? '' : 'bg-brand-gradient'}`}
         style={{ width: `${Math.min(100, Math.max(0, percent))}%`, ...(color ? { background: color } : {}) }}
       />
     </div>
@@ -56,7 +18,7 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
   return (
     <div className="card p-4">
       <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="text-2xl font-bold mt-1">{value}</div>
+      <div className="text-2xl font-bold mt-1 tracking-tight">{value}</div>
       {hint && <div className="text-xs text-slate-400 mt-1">{hint}</div>}
     </div>
   );
@@ -64,7 +26,7 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
 
 export function AiBadge({ provider }: { provider: 'ollama' | 'fallback' }) {
   return provider === 'ollama' ? (
-    <span className="badge bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200">🤖 Ollama LLM</span>
+    <span className="badge bg-secondary-100 text-secondary-700 dark:bg-secondary-900/40 dark:text-secondary-200">🤖 Ollama LLM</span>
   ) : (
     <span className="badge bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">⚙️ Qoidaviy</span>
   );
@@ -96,9 +58,9 @@ export function ConfidenceBadge({ value }: { value: number }) {
 }
 
 function rubricColor(pct: number): string {
-  if (pct >= 75) return '#16a34a';
-  if (pct >= 50) return '#d97706';
-  return '#dc2626';
+  if (pct >= 75) return '#10b981';
+  if (pct >= 50) return '#f59e0b';
+  return '#ef4444';
 }
 
 // Explainable per-criterion breakdown: each row shows points + a "Nega bu ball?"
@@ -118,7 +80,7 @@ function RubricRow({ c }: { c: RubricCriterion }) {
   const [open, setOpen] = useState(false);
   const pct = c.max_points ? Math.round((c.points_given / c.max_points) * 100) : 0;
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium flex-1">{c.criterion}</span>
         <span className="text-sm font-semibold">{c.points_given}/{c.max_points}</span>
@@ -129,7 +91,7 @@ function RubricRow({ c }: { c: RubricCriterion }) {
         </div>
         <button
           onClick={() => setOpen((o) => !o)}
-          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap"
+          className="text-xs text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
         >
           {open ? 'Yashirish' : 'Nega bu ball?'}
         </button>
@@ -144,7 +106,7 @@ function RubricRow({ c }: { c: RubricCriterion }) {
             <div className="text-slate-400">📌 Mos dalil topilmadi.</div>
           )}
           {c.suggestion && (
-            <div className="text-violet-700 dark:text-violet-300">💡 Tavsiya: {c.suggestion}</div>
+            <div className="text-secondary-700 dark:text-secondary-300">💡 Tavsiya: {c.suggestion}</div>
           )}
         </div>
       )}
