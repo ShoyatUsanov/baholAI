@@ -59,6 +59,7 @@ async def submit(
 
     result = await grade_submission(
         assignment.questions or [], payload.answers or {}, assignment.rubric or [],
+        db=db, assignment_id=assignment.id,
     )
     grade = Grade(
         submission_id=sub.id,

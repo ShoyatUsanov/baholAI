@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from app.ai import grade_open_answer
 from app.ai.grader import REVIEW_THRESHOLD
+from app.fingerprint import STRONG_MATCH, match_fingerprint
 
 OBJECTIVE_TYPES = {"mcq", "fill", "truefalse", "match", "reorder"}
 AI_TYPES = {"short", "essay"}
@@ -40,7 +41,10 @@ def _score_objective(q: dict, response) -> tuple[float, bool]:
     return (max_score if ok else 0.0), ok
 
 
-async def grade_submission(questions: list[dict], answers: dict, rubric: list[dict] | None = None) -> dict:
+async def grade_submission(
+    questions: list[dict], answers: dict, rubric: list[dict] | None = None,
+    db=None, assignment_id: int | None = None,
+) -> dict:
     objective_score = 0.0
     ai_score = 0.0
     max_score = 0.0
@@ -49,7 +53,7 @@ async def grade_submission(questions: list[dict], answers: dict, rubric: list[di
     confidences: list[int] = []
     used_ollama = False
 
-    for q in questions:
+    for idx, q in enumerate(questions):
         qid = str(q.get("id"))
         qmax = float(q.get("max_score", 1) or 1)
         max_score += qmax
@@ -57,6 +61,30 @@ async def grade_submission(questions: list[dict], answers: dict, rubric: list[di
         qtype = q.get("type")
 
         if qtype in AI_TYPES or q.get("ai_graded"):
+            # Fingerprint-first: reuse a saved typical answer's ready feedback.
+            fp_match = None
+            if db is not None and assignment_id is not None and (response or "").strip():
+                fp_match = await match_fingerprint(db, assignment_id, idx, response or "")
+
+            if fp_match and fp_match["similarity"] >= STRONG_MATCH:
+                fp = fp_match["fingerprint"]
+                fp.hit_count += 1
+                score = round(min(qmax, float(fp.suggested_points or 0)), 1)
+                ai_score += score
+                confidences.append(95)
+                rubric_breakdown.append({
+                    "criterion": fp.label, "points_given": score, "max_points": qmax,
+                    "evidence": (response or "")[:160], "suggestion": fp.suggested_feedback,
+                    "question_id": qid,
+                })
+                breakdown.append({
+                    "question_id": qid, "type": qtype, "graded_by": "fingerprint",
+                    "score": score, "max": qmax, "response": response,
+                    "rationale": fp.suggested_feedback, "suggestions": [],
+                    "fp_label": fp.label, "fp_similarity": round(fp_match["similarity"] * 100),
+                })
+                continue
+
             result = await grade_open_answer(
                 prompt=q.get("prompt", ""),
                 model_answer=q.get("answer", "") or "",

@@ -471,6 +471,26 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
+class AnswerFingerprint(Base):
+    """A saved "typical" answer for one assignment question. New answers that
+    strongly match reuse its ready feedback instead of re-grading — faster,
+    cheaper, more consistent."""
+
+    __tablename__ = "answer_fingerprints"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id"), index=True)
+    question_index: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str] = mapped_column(String(60))  # "to'g'ri yechim" | "klassik xato" | "to'liqmas"
+    canonical_text: Mapped[str] = mapped_column(Text)
+    vector: Mapped[dict] = mapped_column(JSON, default=dict)  # rule-based BoW or embedding
+    suggested_points: Mapped[float] = mapped_column(Float, default=0.0)
+    suggested_feedback: Mapped[str] = mapped_column(Text, default="")
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 class Appeal(Base):
     """A student's appeal against a grade. Resolving it is the human-review step."""
 
@@ -513,6 +533,7 @@ __all__ = [
     "Activity",
     "AuditLog",
     "Appeal",
+    "AnswerFingerprint",
     "Plan",
     "Subscription",
     "now",

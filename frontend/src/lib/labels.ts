@@ -21,7 +21,13 @@ export const GRADED_BY: Record<string, { label: string; hint: string }> = {
     label: 'AI baholadi',
     hint: "Ochiq javobni AI baholadi. Yakuniy qaror o'qituvchida.",
   },
+  fingerprint: {
+    label: 'Tipik javob asosida',
+    hint: "Bu javob avval baholangan o'xshash javobga mos. Tezroq, arzonroq va izchil.",
+  },
 };
+
+export const FP_LABELS = ["To'g'ri yechim", 'Klassik xato', "To'liqmas"];
 
 export const SUB_STATUS: Record<string, string> = {
   graded: 'Baholandi',

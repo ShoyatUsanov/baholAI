@@ -56,7 +56,7 @@ export interface Assignment {
 export interface GradeBreakdown {
   question_id: string;
   type: QType;
-  graded_by: 'auto' | 'ai';
+  graded_by: 'auto' | 'ai' | 'fingerprint';
   score: number;
   max: number;
   response: unknown;
@@ -64,6 +64,21 @@ export interface GradeBreakdown {
   expected?: unknown;
   rationale?: string;
   suggestions?: string[];
+  fp_label?: string;
+  fp_similarity?: number;
+}
+
+export interface AnswerFingerprint {
+  id: number;
+  assignment_id: number;
+  question_index: number;
+  label: string;
+  canonical_text: string;
+  suggested_points: number;
+  suggested_feedback: string;
+  hit_count: number;
+  created_by: number | null;
+  created_at: string | null;
 }
 
 export interface RubricCriterion {

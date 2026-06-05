@@ -4,6 +4,7 @@ from __future__ import annotations
 from app.models import (
     Activity,
     Announcement,
+    AnswerFingerprint,
     ApiKey,
     Assignment,
     Attendance,
@@ -192,6 +193,15 @@ def payment_out(p: Payment) -> dict:
         "period": p.period, "status": p.status, "group_id": p.group_id,
         "plan_code": p.plan_code, "billing_cycle": p.billing_cycle, "method": p.method,
         "created_at": _iso(p.created_at),
+    }
+
+
+def fingerprint_out(f: AnswerFingerprint) -> dict:
+    return {
+        "id": f.id, "assignment_id": f.assignment_id, "question_index": f.question_index,
+        "label": f.label, "canonical_text": f.canonical_text,
+        "suggested_points": f.suggested_points, "suggested_feedback": f.suggested_feedback,
+        "hit_count": f.hit_count, "created_by": f.created_by, "created_at": _iso(f.created_at),
     }
 
 

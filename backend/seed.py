@@ -14,6 +14,7 @@ import secrets
 from app.db import Base, SessionLocal, engine
 from app.models import (
     Activity,
+    AnswerFingerprint,
     Appeal,
     AuditLog,
     Announcement,
@@ -40,6 +41,7 @@ from app.models import (
     Test,
     User,
 )
+from app.fingerprint import text_vector
 from app.originality import build_report
 from app.services.audit import audit_log
 from app.services.billing import PLAN_DEFS, cycle_expiry
@@ -544,6 +546,46 @@ async def run() -> None:
             db.add(Payment(
                 student_id=u.id, amount=amount, currency="UZS", period="2026-06",
                 status="paid", plan_code=code, billing_cycle=cycle, method="mock",
+            ))
+
+        # ---- Answer fingerprints (semantic fingerprinting demo) ----
+        info_asg = assignments["informatika"]
+        info_teacher = teachers["informatika"]
+        QIDX = 2  # q3 — "Algoritm nima?" (ochiq savol)
+        FP_CORRECT = "Algoritm — bu masalani yechish uchun aniq va cheklangan qadamlar ketma-ketligi."
+        FP_WRONG = "Algoritm bu dasturlash tili yoki tayyor dastur."
+        fp_correct = AnswerFingerprint(
+            assignment_id=info_asg.id, question_index=QIDX, label="To'g'ri yechim",
+            canonical_text=FP_CORRECT, vector=await text_vector(FP_CORRECT), suggested_points=5.0,
+            suggested_feedback="To'g'ri va aniq ta'rif — algoritm qadamlar ketma-ketligi. Ajoyib!",
+            created_by=info_teacher.id,
+        )
+        fp_wrong = AnswerFingerprint(
+            assignment_id=info_asg.id, question_index=QIDX, label="Klassik xato",
+            canonical_text=FP_WRONG, vector=await text_vector(FP_WRONG), suggested_points=2.0,
+            suggested_feedback="Algoritm — dastur yoki til emas. Bu masalani yechishning aniq qadamlari; dastur uni amalga oshiradi.",
+            created_by=info_teacher.id,
+        )
+        db.add_all([fp_correct, fp_wrong])
+        await db.flush()
+
+        # Submissions that strongly match the fingerprints → reused feedback (badge).
+        _FP_DEMO = [
+            ("student5", FP_CORRECT),
+            ("student6", FP_WRONG),
+        ]
+        for uname, q3text in _FP_DEMO:
+            st = by_username[uname]
+            answers = {"q1": "O(log n)", "q2": "binary", "q3": q3text}
+            fsub = Submission(assignment_id=info_asg.id, student_id=st.id, answers=answers, status="graded")
+            db.add(fsub)
+            await db.flush()
+            res = await grade_submission(info_asg.questions, answers, info_asg.rubric or [], db=db, assignment_id=info_asg.id)
+            db.add(Grade(
+                submission_id=fsub.id, objective_score=res["objective_score"], ai_score=res["ai_score"],
+                total_score=res["total_score"], max_score=res["max_score"], breakdown=res["breakdown"],
+                ai_provider=res["ai_provider"], rubric_breakdown=res["rubric_breakdown"],
+                confidence=res["confidence"], needs_review=res["needs_review"], status="approved",
             ))
 
         # ---- Collections, lessons, decks, tests (per subject) ----

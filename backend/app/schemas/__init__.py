@@ -86,6 +86,15 @@ class PlanUpdateIn(BaseModel):
     features: dict[str, Any] | None = None
 
 
+class FingerprintIn(BaseModel):
+    assignment_id: int
+    question_index: int = 0
+    label: str
+    canonical_text: str
+    suggested_points: float = 0
+    suggested_feedback: str = ""
+
+
 class FeedbackIn(BaseModel):
     submission_id: int
     rating: int = 5

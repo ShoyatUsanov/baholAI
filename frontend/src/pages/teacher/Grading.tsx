@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GraduationCap, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { GraduationCap, ShieldAlert, ShieldCheck, Trash2, Zap } from 'lucide-react';
 
 import HelpBanner from '@/components/HelpBanner';
 import { useToast } from '@/components/Toast';
 import { AiBadge, Badge, Button, Card, ConfidenceBadge, EmptyState, InfoTooltip, PageHeader, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { GRADED_BY, HINTS } from '@/lib/labels';
+import { FP_LABELS, GRADED_BY, HINTS } from '@/lib/labels';
 import type {
+  AnswerFingerprint,
   Assignment,
   GradeBreakdown,
   OriginalityReport,
@@ -61,13 +62,20 @@ export default function Grading() {
     }
   }, [user]);
 
+  const [fingerprints, setFingerprints] = useState<AnswerFingerprint[]>([]);
+
   const loadSubs = useCallback(() => {
     if (active) api.get<Submission[]>(`/submissions?assignment_id=${active.id}`).then(setSubs);
   }, [active]);
 
+  const loadFingerprints = useCallback(() => {
+    if (active) api.get<AnswerFingerprint[]>(`/fingerprints?assignment_id=${active.id}`).then(setFingerprints);
+  }, [active]);
+
   useEffect(() => {
     loadSubs();
-  }, [loadSubs]);
+    loadFingerprints();
+  }, [loadSubs, loadFingerprints]);
 
   const reviewCount = subs.filter((s) => s.grade?.needs_review).length;
   const shown = onlyReview ? subs.filter((s) => s.grade?.needs_review) : subs;
@@ -115,6 +123,8 @@ export default function Grading() {
             ))}
           </div>
 
+          {fingerprints.length > 0 && <FingerprintPanel items={fingerprints} onChanged={loadFingerprints} />}
+
           {subs.length > 0 && (
             <div className="flex items-center gap-2 mb-3">
               <button
@@ -145,6 +155,7 @@ export default function Grading() {
                 questionsById={questionsById}
                 subNameById={subNameById}
                 onChanged={loadSubs}
+                onFpSaved={loadFingerprints}
               />
             ))}
             {active && subs.length === 0 && <p className="text-slate-400 text-sm">Bu vazifaga topshirish yo'q.</p>}
@@ -165,6 +176,7 @@ function GradeRow({
   questionsById,
   subNameById,
   onChanged,
+  onFpSaved,
 }: {
   sub: Submission;
   studentName: string;
@@ -172,6 +184,7 @@ function GradeRow({
   questionsById: Record<string, Question>;
   subNameById: Record<number, string>;
   onChanged: () => void;
+  onFpSaved: () => void;
 }) {
   const toast = useToast();
   const [rating, setRating] = useState(4);
@@ -336,7 +349,14 @@ function GradeRow({
         <div className="mb-3 space-y-2 border-t border-slate-100 dark:border-slate-700 pt-3">
           {breakdown.length === 0 && <div className="text-sm text-slate-400">Tafsilot yo'q.</div>}
           {breakdown.map((b, i) => (
-            <AnswerRow key={b.question_id} b={b} idx={i} question={questionsById[b.question_id]} />
+            <AnswerRow
+              key={b.question_id}
+              b={b}
+              idx={i}
+              question={questionsById[b.question_id]}
+              assignmentId={sub.assignment_id}
+              onFpSaved={onFpSaved}
+            />
           ))}
         </div>
       )}
@@ -439,8 +459,50 @@ function OriginalityPanel({
   );
 }
 
-function AnswerRow({ b, idx, question }: { b: GradeBreakdown; idx: number; question?: Question }) {
+function AnswerRow({
+  b,
+  idx,
+  question,
+  assignmentId,
+  onFpSaved,
+}: {
+  b: GradeBreakdown;
+  idx: number;
+  question?: Question;
+  assignmentId: number;
+  onFpSaved: () => void;
+}) {
+  const toast = useToast();
   const wrong = b.graded_by === 'auto' && b.correct === false;
+  const isOpen = b.graded_by === 'ai' || b.graded_by === 'fingerprint';
+  const isFp = b.graded_by === 'fingerprint';
+  const hasAnswer = b.response != null && String(b.response).trim() !== '';
+
+  const [form, setForm] = useState(false);
+  const [label, setLabel] = useState(FP_LABELS[0]);
+  const [points, setPoints] = useState(b.score);
+  const [fb, setFb] = useState(b.rationale ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.post('/fingerprints', {
+        assignment_id: assignmentId,
+        question_index: idx,
+        label,
+        canonical_text: String(b.response ?? ''),
+        suggested_points: points,
+        suggested_feedback: fb,
+      });
+      setForm(false);
+      onFpSaved();
+      toast.success('Tipik javob saqlandi ⚡');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
       <div className="flex items-start justify-between gap-2 mb-1">
@@ -448,8 +510,10 @@ function AnswerRow({ b, idx, question }: { b: GradeBreakdown; idx: number; quest
           {idx + 1}. {question?.prompt ?? `Savol ${b.question_id}`}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Badge color={b.graded_by === 'ai' ? 'violet' : 'green'}>
-            {b.graded_by === 'ai' ? '🤖 ' : ''}{GRADED_BY[b.graded_by]?.label ?? b.graded_by}
+          <Badge color={b.graded_by === 'ai' ? 'violet' : isFp ? 'amber' : 'green'}>
+            {b.graded_by === 'ai' ? '🤖 ' : isFp ? '⚡ ' : ''}
+            {GRADED_BY[b.graded_by]?.label ?? b.graded_by}
+            {isFp && b.fp_similarity != null ? ` · ${b.fp_similarity}%` : ''}
           </Badge>
           <InfoTooltip text={GRADED_BY[b.graded_by]?.hint ?? ''} />
           <span className={`text-sm font-semibold ${b.score >= b.max ? 'text-green-600' : wrong ? 'text-red-600' : 'text-amber-600'}`}>
@@ -464,9 +528,9 @@ function AnswerRow({ b, idx, question }: { b: GradeBreakdown; idx: number; quest
       {wrong && b.expected != null && (
         <div className="text-sm text-red-600 dark:text-red-400 mt-0.5">To'g'ri javob: {fmtResponse(b.expected)}</div>
       )}
-      {b.graded_by === 'ai' && (b.rationale || (b.suggestions && b.suggestions.length > 0)) && (
-        <div className="mt-2 bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800 rounded-lg p-2.5">
-          {b.rationale && <div className="text-sm text-violet-900 dark:text-violet-200">{b.rationale}</div>}
+      {isOpen && (b.rationale || (b.suggestions && b.suggestions.length > 0)) && (
+        <div className={`mt-2 rounded-lg p-2.5 ${isFp ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800' : 'bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800'}`}>
+          {b.rationale && <div className={`text-sm ${isFp ? 'text-amber-900 dark:text-amber-200' : 'text-violet-900 dark:text-violet-200'}`}>{b.rationale}</div>}
           {b.suggestions && b.suggestions.length > 0 && (
             <ul className="mt-1 text-xs text-violet-700 dark:text-violet-300 list-disc list-inside">
               {b.suggestions.map((s, i) => (
@@ -476,6 +540,65 @@ function AnswerRow({ b, idx, question }: { b: GradeBreakdown; idx: number; quest
           )}
         </div>
       )}
+
+      {isOpen && hasAnswer && (
+        form ? (
+          <div className="mt-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/20 p-2.5 space-y-2">
+            <div className="text-xs font-medium text-amber-800 dark:text-amber-200">⚡ Tipik javob sifatida saqlash</div>
+            <div className="flex gap-2">
+              <select value={label} onChange={(e) => setLabel(e.target.value)} className="flex-1 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1">
+                {FP_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <input type="number" step="0.5" min={0} value={points} onChange={(e) => setPoints(Number(e.target.value))} className="w-16 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1" />
+            </div>
+            <textarea value={fb} onChange={(e) => setFb(e.target.value)} rows={2} placeholder="Tayyor feedback…" className="w-full text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1" />
+            <div className="flex gap-2">
+              <Button onClick={save} disabled={saving} className="text-xs">{saving ? '…' : 'Saqlash'}</Button>
+              <button onClick={() => setForm(false)} className="text-xs text-slate-500 hover:underline">Bekor</button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setLabel(FP_LABELS[0]); setPoints(b.score); setFb(b.rationale ?? ''); setForm(true); }}
+            className="mt-2 inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:underline"
+          >
+            <Zap size={13} /> Tipik javob sifatida saqlash
+          </button>
+        )
+      )}
     </div>
   );
 }
+
+function FingerprintPanel({ items, onChanged }: { items: AnswerFingerprint[]; onChanged: () => void }) {
+  const toast = useToast();
+  const remove = async (id: number) => {
+    await api.del(`/fingerprints/${id}`);
+    onChanged();
+    toast.info("Tipik javob o'chirildi");
+  };
+  return (
+    <Card className="p-4 mb-4 border-l-4 border-l-amber-400">
+      <div className="flex items-center gap-2 mb-2">
+        <Zap size={16} className="text-amber-500" />
+        <span className="font-semibold text-sm">Tipik javoblar</span>
+        <InfoTooltip text={HINTS_FP} />
+        <span className="text-xs text-slate-400 ml-auto">{items.length} ta</span>
+      </div>
+      <div className="space-y-1.5">
+        {items.map((f) => (
+          <div key={f.id} className="flex items-center gap-2 text-sm rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
+            <Badge color="amber">{f.label}</Badge>
+            <span className="text-slate-500 truncate flex-1">{f.canonical_text}</span>
+            <span className="text-xs text-slate-400 whitespace-nowrap">⚡ {f.hit_count} marta · {f.suggested_points} ball</span>
+            <button onClick={() => remove(f.id)} className="text-slate-400 hover:text-red-500" title="O'chirish">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+const HINTS_FP = "Saqlangan tipik javoblar. Yangi o'xshash javob shularga mos kelsa, tayyor baho va feedback darhol qo'llanadi.";
