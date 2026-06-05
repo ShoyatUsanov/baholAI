@@ -260,12 +260,12 @@ function GradeRow({
 
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between gap-3 mb-2">
         <div>
-          <div className="font-medium">{studentName}</div>
-          <div className="text-xs text-slate-400">{new Date(sub.submitted_at).toLocaleString()}</div>
+          <div className="text-lg font-semibold">{studentName}</div>
+          <div className="text-sm text-slate-500">{new Date(sub.submitted_at).toLocaleString()}</div>
         </div>
-        <div className="flex items-center gap-2 text-sm flex-wrap justify-end">
+        <div className="flex flex-wrap items-center gap-2 justify-end">
           {lvl && <OriginalityChip level={lvl} open={origOpen} onClick={() => setOrigOpen((o) => !o)} />}
           {g?.needs_review && (
             <span className="inline-flex items-center gap-0.5">
@@ -273,7 +273,6 @@ function GradeRow({
               <InfoTooltip text={HINTS.needs_review} />
             </span>
           )}
-          <span className="font-semibold">{pct}%</span>
           <span className="inline-flex items-center gap-0.5">
             <Badge color="green">avto {g?.objective_score}</Badge>
             <InfoTooltip text={HINTS.objective_score} />
@@ -296,8 +295,8 @@ function GradeRow({
       {origOpen && orig && <OriginalityPanel orig={orig} subNameById={subNameById} />}
 
       {g?.status === 'pending' && (
-        <div className="mb-3 flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-2.5">
-          <span className="text-sm text-amber-800 dark:text-amber-200 flex-1">
+        <div className="mb-3 flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-3">
+          <span className="text-base text-amber-800 dark:text-amber-200 flex-1">
             ⏳ Draft — o'quvchiga hali ko'rinmaydi. AI bahosini tasdiqlaysizmi?
           </span>
           <Button onClick={approve} disabled={approving} className="whitespace-nowrap">
@@ -306,9 +305,12 @@ function GradeRow({
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex items-center gap-3 mb-3">
+        <span className={`text-score ${pct >= 75 ? 'text-accent-600 dark:text-accent-400' : pct >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+          {pct}%
+        </span>
         <div className="flex-1"><PercentBar percent={pct} /></div>
-        <button onClick={() => setOpen((o) => !o)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap">
+        <button onClick={() => setOpen((o) => !o)} className="text-base font-medium text-indigo-600 dark:text-indigo-400 hover:underline whitespace-nowrap">
           {open ? 'Javoblarni yashirish' : '📄 Javoblarni ko\'rish'}
         </button>
       </div>
@@ -317,13 +319,13 @@ function GradeRow({
         <div className="mb-3 rounded-lg bg-violet-50/60 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/60 p-3">
           <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-violet-900 dark:text-violet-200">🧠 AI rubrika bahosi</span>
+              <span className="text-base font-semibold text-violet-900 dark:text-violet-200">🧠 AI rubrika bahosi</span>
               <VerificationBadge items={rubric} />
             </div>
             {!editing ? (
               <button
                 onClick={() => { setAiVal(g ? Math.round((g.total_score - g.objective_score) * 10) / 10 : 0); setEditing(true); }}
-                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
               >
                 ✎ AI ballini tuzatish
               </button>
@@ -335,12 +337,12 @@ function GradeRow({
                   min={0}
                   value={aiVal}
                   onChange={(e) => setAiVal(Number(e.target.value))}
-                  className="w-16 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1 text-sm"
+                  className="w-20 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1.5 text-base"
                 />
-                <Button onClick={saveGrade} disabled={savingGrade} className="text-xs">
+                <Button onClick={saveGrade} disabled={savingGrade}>
                   {savingGrade ? '…' : 'Saqlash'}
                 </Button>
-                <button onClick={() => setEditing(false)} className="text-xs text-slate-500 hover:underline">Bekor</button>
+                <button onClick={() => setEditing(false)} className="text-sm text-slate-500 hover:underline">Bekor</button>
               </div>
             )}
           </div>
@@ -365,13 +367,13 @@ function GradeRow({
       )}
 
       {sent ? (
-        <div className="text-sm text-green-700 dark:text-green-400">✓ Feedback yuborildi</div>
+        <div className="text-base text-green-700 dark:text-green-400">✓ Feedback yuborildi</div>
       ) : (
         <div className="flex items-start gap-2">
           <select
             value={rating}
             onChange={(e) => setRating(Number(e.target.value))}
-            className="border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-2 py-2 text-sm"
+            className="border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-2 py-2 text-base"
           >
             {[5, 4, 3, 2, 1].map((r) => (
               <option key={r} value={r}>⭐ {r}</option>
@@ -381,8 +383,8 @@ function GradeRow({
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Feedback yozing yoki AI'dan taklif oling…"
-            rows={2}
-            className="flex-1 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
+            rows={3}
+            className="flex-1 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-3 py-2 text-base"
           />
           <div className="flex flex-col gap-2">
             <Button variant="ai" onClick={suggest} disabled={aiBusy} className="whitespace-nowrap">
@@ -411,9 +413,9 @@ function OriginalityChip({ level, open, onClick }: { level: OrigLevel; open: boo
     <button
       onClick={onClick}
       title="Original'lik tekshiruvi"
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium hover:bg-slate-50 dark:hover:bg-slate-700/50 ${CHIP_STYLES[level]} ${open ? 'ring-1 ring-current' : ''}`}
+      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700/50 ${CHIP_STYLES[level]} ${open ? 'ring-1 ring-current' : ''}`}
     >
-      <Icon size={14} />
+      <Icon size={16} />
       {CHIP_LABEL[level]}
     </button>
   );
@@ -507,68 +509,87 @@ function AnswerRow({
   };
 
   return (
-    <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="text-sm font-medium">
+    <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-4 md:grid md:grid-cols-[1fr_15rem] md:gap-5">
+      {/* LEFT — the paper: question + the student's answer sheet (the hero) */}
+      <div className="min-w-0">
+        <div className="text-question text-slate-800 dark:text-slate-100">
           {idx + 1}. {question?.prompt ?? `Savol ${b.question_id}`}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Badge color={b.graded_by === 'ai' ? 'violet' : isFp ? 'amber' : 'green'}>
-            {b.graded_by === 'ai' ? '🤖 ' : isFp ? '⚡ ' : ''}
-            {GRADED_BY[b.graded_by]?.label ?? b.graded_by}
-            {isFp && b.fp_similarity != null ? ` · ${b.fp_similarity}%` : ''}
-          </Badge>
-          <InfoTooltip text={GRADED_BY[b.graded_by]?.hint ?? ''} />
-          <span className={`text-sm font-semibold ${b.score >= b.max ? 'text-green-600' : wrong ? 'text-red-600' : 'text-amber-600'}`}>
+
+        <div className="mt-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              O'quvchi javobi
+            </span>
+            {b.graded_by === 'auto' && <span className="text-base">{b.correct ? '✅' : '❌'}</span>}
+          </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 px-5 py-4 max-h-72 overflow-y-auto">
+            <p className="text-answer text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">
+              {fmtResponse(b.response)}
+            </p>
+          </div>
+        </div>
+
+        {wrong && b.expected != null && (
+          <div className="text-base text-red-600 dark:text-red-400 mt-2">To'g'ri javob: {fmtResponse(b.expected)}</div>
+        )}
+      </div>
+
+      {/* RIGHT — the margin: method badge, big score, AI notes, save-as-typical */}
+      <div className="mt-4 md:mt-0 space-y-3">
+        <div className="flex items-center justify-between gap-2 md:flex-col md:items-start">
+          <span className="inline-flex items-center gap-1">
+            <Badge color={b.graded_by === 'ai' ? 'violet' : isFp ? 'amber' : 'green'}>
+              {b.graded_by === 'ai' ? '🤖 ' : isFp ? '⚡ ' : ''}
+              {GRADED_BY[b.graded_by]?.label ?? b.graded_by}
+              {isFp && b.fp_similarity != null ? ` · ${b.fp_similarity}%` : ''}
+            </Badge>
+            <InfoTooltip text={GRADED_BY[b.graded_by]?.hint ?? ''} />
+          </span>
+          <span className={`text-score ${b.score >= b.max ? 'text-green-600 dark:text-green-400' : wrong ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
             {b.score}/{b.max}
           </span>
         </div>
-      </div>
-      <div className="text-sm text-slate-600 dark:text-slate-300">
-        Javob: <i>{fmtResponse(b.response)}</i>
-        {b.graded_by === 'auto' && (b.correct ? ' ✅' : ' ❌')}
-      </div>
-      {wrong && b.expected != null && (
-        <div className="text-sm text-red-600 dark:text-red-400 mt-0.5">To'g'ri javob: {fmtResponse(b.expected)}</div>
-      )}
-      {isOpen && (b.rationale || (b.suggestions && b.suggestions.length > 0)) && (
-        <div className={`mt-2 rounded-lg p-2.5 ${isFp ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800' : 'bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800'}`}>
-          {b.rationale && <div className={`text-sm ${isFp ? 'text-amber-900 dark:text-amber-200' : 'text-violet-900 dark:text-violet-200'}`}>{b.rationale}</div>}
-          {b.suggestions && b.suggestions.length > 0 && (
-            <ul className="mt-1 text-xs text-violet-700 dark:text-violet-300 list-disc list-inside">
-              {b.suggestions.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
-      {isOpen && hasAnswer && (
-        form ? (
-          <div className="mt-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/20 p-2.5 space-y-2">
-            <div className="text-xs font-medium text-amber-800 dark:text-amber-200">⚡ Tipik javob sifatida saqlash</div>
-            <div className="flex gap-2">
-              <select value={label} onChange={(e) => setLabel(e.target.value)} className="flex-1 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1">
-                {FP_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
-              <input type="number" step="0.5" min={0} value={points} onChange={(e) => setPoints(Number(e.target.value))} className="w-16 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1" />
-            </div>
-            <textarea value={fb} onChange={(e) => setFb(e.target.value)} rows={2} placeholder="Tayyor feedback…" className="w-full text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1" />
-            <div className="flex gap-2">
-              <Button onClick={save} disabled={saving} className="text-xs">{saving ? '…' : 'Saqlash'}</Button>
-              <button onClick={() => setForm(false)} className="text-xs text-slate-500 hover:underline">Bekor</button>
-            </div>
+        {isOpen && (b.rationale || (b.suggestions && b.suggestions.length > 0)) && (
+          <div className={`rounded-lg p-3 ${isFp ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800' : 'bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800'}`}>
+            {b.rationale && <div className={`text-base ${isFp ? 'text-amber-900 dark:text-amber-200' : 'text-violet-900 dark:text-violet-200'}`}>{b.rationale}</div>}
+            {b.suggestions && b.suggestions.length > 0 && (
+              <ul className="mt-1.5 text-sm text-violet-700 dark:text-violet-300 list-disc list-inside space-y-0.5">
+                {b.suggestions.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            )}
           </div>
-        ) : (
-          <button
-            onClick={() => { setLabel(FP_LABELS[0]); setPoints(b.score); setFb(b.rationale ?? ''); setForm(true); }}
-            className="mt-2 inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:underline"
-          >
-            <Zap size={13} /> Tipik javob sifatida saqlash
-          </button>
-        )
-      )}
+        )}
+
+        {isOpen && hasAnswer && (
+          form ? (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/20 p-3 space-y-2">
+              <div className="text-sm font-medium text-amber-800 dark:text-amber-200">⚡ Tipik javob sifatida saqlash</div>
+              <div className="flex gap-2">
+                <select value={label} onChange={(e) => setLabel(e.target.value)} className="flex-1 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1.5">
+                  {FP_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <input type="number" step="0.5" min={0} value={points} onChange={(e) => setPoints(Number(e.target.value))} className="w-20 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1.5" />
+              </div>
+              <textarea value={fb} onChange={(e) => setFb(e.target.value)} rows={2} placeholder="Tayyor feedback…" className="w-full text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded px-2 py-1.5" />
+              <div className="flex gap-2">
+                <Button onClick={save} disabled={saving}>{saving ? '…' : 'Saqlash'}</Button>
+                <button onClick={() => setForm(false)} className="text-sm text-slate-500 hover:underline">Bekor</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setLabel(FP_LABELS[0]); setPoints(b.score); setFb(b.rationale ?? ''); setForm(true); }}
+              className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400 hover:underline"
+            >
+              <Zap size={15} /> Tipik javob sifatida saqlash
+            </button>
+          )
+        )}
+      </div>
     </div>
   );
 }
@@ -583,19 +604,19 @@ function FingerprintPanel({ items, onChanged }: { items: AnswerFingerprint[]; on
   return (
     <Card className="p-4 mb-4 border-l-4 border-l-amber-400">
       <div className="flex items-center gap-2 mb-2">
-        <Zap size={16} className="text-amber-500" />
-        <span className="font-semibold text-sm">Tipik javoblar</span>
+        <Zap size={18} className="text-amber-500" />
+        <span className="font-semibold text-base">Tipik javoblar</span>
         <InfoTooltip text={HINTS_FP} />
-        <span className="text-xs text-slate-400 ml-auto">{items.length} ta</span>
+        <span className="text-sm text-slate-400 ml-auto">{items.length} ta</span>
       </div>
       <div className="space-y-1.5">
         {items.map((f) => (
           <div key={f.id} className="flex items-center gap-2 text-sm rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
             <Badge color="amber">{f.label}</Badge>
-            <span className="text-slate-500 truncate flex-1">{f.canonical_text}</span>
-            <span className="text-xs text-slate-400 whitespace-nowrap">⚡ {f.hit_count} marta · {f.suggested_points} ball</span>
+            <span className="text-slate-500 line-clamp-2 flex-1">{f.canonical_text}</span>
+            <span className="text-sm text-slate-400 whitespace-nowrap">⚡ {f.hit_count} marta · {f.suggested_points} ball</span>
             <button onClick={() => remove(f.id)} className="text-slate-400 hover:text-red-500" title="O'chirish">
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </div>
         ))}

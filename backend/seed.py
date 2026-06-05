@@ -206,6 +206,83 @@ ASSIGNMENTS = {
     },
 }
 
+# Skill-specific English assignments (Reading / Writing / Speaking). They attach to
+# subject "ingliz-tili" + teacher_ingliz_tili and are rendered by DoAssignment.tsx,
+# so only mcq/fill/truefalse/short/essay question types are used.
+ENGLISH_EXTRA = [
+    {
+        "title": "Reading — 'A Day at the Museum'",
+        "method": "flipped",
+        "description": "Qisqa matnni o'qib, savollarga javob bering.",
+        "questions": [
+            {"id": "q1", "type": "mcq",
+             "prompt": "What did the visitors see first in the museum?",
+             "options": ["The dinosaur hall", "The gift shop", "The cafe", "The library"],
+             "answer": "The dinosaur hall", "max_score": 2},
+            {"id": "q2", "type": "truefalse",
+             "prompt": "The text says photography was allowed inside.",
+             "answer": "false", "max_score": 2},
+            {"id": "q3", "type": "fill",
+             "prompt": "The guided tour lasted about ___ hours.",
+             "answer": "two", "max_score": 2},
+            {"id": "q4", "type": "short", "ai_graded": True, "max_score": 4,
+             "prompt": "In your own words, what was the main idea of the text?",
+             "answer": "The text describes a school trip to a museum, where students explored exhibits and learned about history."},
+        ],
+        "rubric": [
+            {"criterion": "Main idea identified", "max_points": 2,
+             "description": "museum trip students explored history exhibits main idea"},
+            {"criterion": "Own words / clarity", "max_points": 2,
+             "description": "paraphrase clear own words not copied"},
+        ],
+    },
+    {
+        "title": "Writing — 'My Future Plans'",
+        "method": "project",
+        "description": "Kelajak rejalaringiz haqida insho yozing (Future tenses).",
+        "questions": [
+            {"id": "q1", "type": "mcq",
+             "prompt": "Which sentence is correct?",
+             "options": ["I will to travel.", "I will travel.", "I will travelling.", "I will travels."],
+             "answer": "I will travel.", "max_score": 2},
+            {"id": "q2", "type": "essay", "ai_graded": True, "max_score": 8,
+             "prompt": "Write a short essay (80-120 words) about your future plans. Use 'will', 'going to' and at least two reasons.",
+             "answer": "In the future I am going to study computer science at university. I will work hard to improve my English because it will help my career. After graduating I am going to find a job in technology, and one day I will start my own company. I believe these plans will make my family proud."},
+        ],
+        "rubric": [
+            {"criterion": "Task & length", "max_points": 2,
+             "description": "future plans 80 120 words on topic answered question"},
+            {"criterion": "Grammar — future tenses", "max_points": 3,
+             "description": "will going to future tense correct grammar verbs"},
+            {"criterion": "Vocabulary & coherence", "max_points": 2,
+             "description": "vocabulary linking words because reasons clear coherent"},
+            {"criterion": "Two reasons given", "max_points": 1,
+             "description": "two reasons because help career explained"},
+        ],
+    },
+    {
+        "title": "Speaking — 'Describe Your Hometown'",
+        "method": "standard",
+        "description": "Shahringiz haqida gapiring (transkripsiya matn ko'rinishida).",
+        "questions": [
+            {"id": "q1", "type": "truefalse",
+             "prompt": "A good description includes specific examples.",
+             "answer": "true", "max_score": 1},
+            {"id": "q2", "type": "short", "ai_graded": True, "max_score": 5,
+             "prompt": "Transcribe your 1-minute talk: describe your hometown, what you like, and one place to visit.",
+             "answer": "My hometown is Andijan. I like it because the people are friendly and the food is delicious. A great place to visit is Babur Park, where families relax in the evening."},
+        ],
+        "rubric": [
+            {"criterion": "Fluency & content", "max_points": 2,
+             "description": "hometown described what like reasons enough content fluent"},
+            {"criterion": "Specific place mentioned", "max_points": 2,
+             "description": "place visit park named specific example"},
+            {"criterion": "Vocabulary range", "max_points": 1,
+             "description": "vocabulary varied friendly delicious relax"},
+        ],
+    },
+]
+
 
 # Per-subject collections (to'plamlar) — title + icon + lesson titles.
 COLLECTIONS = {
@@ -436,6 +513,55 @@ async def run() -> None:
                         subject_id=subjects[slug].id, rating=max(2, min(5, pct // 20 + 1)),
                         comment=comment, seen_by_student=rng.random() < 0.5,
                     ))
+
+        # ---- Extra English assignments (Reading / Writing / Speaking) ----
+        en_subj = subjects["ingliz-tili"]
+        en_teacher = teachers["ingliz-tili"]
+        english_extra: dict[str, Assignment] = {}
+        for a in ENGLISH_EXTRA:
+            asg = Assignment(
+                subject_id=en_subj.id, teacher_id=en_teacher.id, institution_id=uni.id,
+                title=a["title"], description=a["description"], method=a["method"],
+                questions=a["questions"], rubric=a.get("rubric", []), target_student_ids=[],
+            )
+            db.add(asg)
+            english_extra[a["title"]] = asg
+        await db.flush()
+
+        # student1 submits the WRITING essay — graded by the 3-pass AI grader and left
+        # PENDING so the English teacher has a real writing to review in Baholash.
+        writing = english_extra["Writing — 'My Future Plans'"]
+        s1 = by_username["student1"]
+        writing_answers = {
+            "q1": "I will travel.",
+            "q2": (
+                "In the future I am going to study computer science at university. "
+                "I will work hard to improve my English because it will help me find "
+                "a good job. After I graduate I am going to move to a bigger city, and "
+                "one day I will open my own software company. I think these plans will "
+                "make my parents proud and give me a happy life."
+            ),
+        }
+        wsub = Submission(assignment_id=writing.id, student_id=s1.id,
+                          answers=writing_answers, status="graded")
+        db.add(wsub)
+        await db.flush()
+        all_subs.append(wsub)
+        wres = await grade_submission(writing.questions, writing_answers, writing.rubric or [])
+        db.add(Grade(
+            submission_id=wsub.id,
+            objective_score=wres["objective_score"], ai_score=wres["ai_score"],
+            total_score=wres["total_score"], max_score=wres["max_score"],
+            breakdown=wres["breakdown"], ai_provider=wres["ai_provider"],
+            rubric_breakdown=wres["rubric_breakdown"], confidence=wres["confidence"],
+            needs_review=wres["needs_review"], status="pending",
+        ))
+        db.add(Feedback(
+            submission_id=wsub.id, teacher_id=en_teacher.id, student_id=s1.id,
+            subject_id=en_subj.id, rating=4,
+            comment="Good use of future tenses and clear reasons. Add one more linking word next time.",
+            seen_by_student=False,
+        ))
 
         # Originality reports for every submission — built after all submissions
         # exist so peer similarity is symmetric. A SIGNAL for teachers, not a penalty.

@@ -84,11 +84,11 @@ function RubricRow({ c }: { c: RubricCriterion }) {
   const pct = c.max_points ? Math.round((c.points_given / c.max_points) * 100) : 0;
   const cls = c.classification ? CLASSIFICATION[c.classification] : null;
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
       <div className="flex items-center gap-2">
         {cls && <Badge color={cls.color}>{cls.label}</Badge>}
-        <span className="text-sm font-medium flex-1 min-w-0 truncate">{c.criterion}</span>
-        <span className="text-sm font-semibold">{c.points_given}/{c.max_points}</span>
+        <span className="text-question flex-1 min-w-0 line-clamp-2">{c.criterion}</span>
+        <span className="text-base font-semibold">{c.points_given}/{c.max_points}</span>
       </div>
       <div className="flex items-center gap-2 mt-1.5">
         <div className="flex-1">
@@ -96,16 +96,16 @@ function RubricRow({ c }: { c: RubricCriterion }) {
         </div>
         <button
           onClick={() => setOpen((o) => !o)}
-          className="text-xs text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
+          className="text-sm text-primary-600 dark:text-primary-400 hover:underline whitespace-nowrap"
         >
           {open ? 'Yashirish' : 'Nega bu ball?'}
         </button>
       </div>
       {open && (
-        <div className="mt-2 text-xs space-y-1.5">
+        <div className="mt-2 text-sm space-y-1.5">
           {c.evidence ? (
             <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 border-l-2 border-primary-400 px-2.5 py-1.5 text-slate-700 dark:text-slate-200">
-              <span className="text-slate-400">Javobingizdan:</span> <i>«{c.evidence}»</i>
+              <span className="text-slate-400">Javobingizdan:</span> «{c.evidence}»
             </div>
           ) : (
             <div className="text-slate-400">📌 {c.evidence_note || 'Mos dalil topilmadi.'}</div>
@@ -126,7 +126,7 @@ export function VerificationBadge({ items }: { items: RubricCriterion[] }) {
   const coverage = Math.round((checked.filter((c) => c.evidence).length / checked.length) * 100);
   const low = coverage < 50;
   return (
-    <span className="inline-flex items-center gap-1 text-xs">
+    <span className="inline-flex items-center gap-1 text-sm">
       <span
         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${
           low

@@ -194,28 +194,35 @@ export default function Result() {
         </>
       )}
 
-      <h2 className="font-semibold mb-2">Savollar bo'yicha</h2>
+      <h2 className="text-lg font-semibold mb-2">Savollar bo'yicha</h2>
       <div className="space-y-3 mb-6">
         {g.breakdown.map((b) => (
           <Card key={b.question_id} className="p-4">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-2">
               <span className="inline-flex items-center gap-1">
                 <Badge color={b.graded_by === 'ai' ? 'violet' : 'green'}>
                   {b.graded_by === 'ai' ? '🤖 ' : ''}{GRADED_BY[b.graded_by]?.label ?? b.graded_by}
                 </Badge>
                 <InfoTooltip text={GRADED_BY[b.graded_by]?.hint ?? ''} />
               </span>
-              <span className="text-sm font-semibold">{b.score} / {b.max}</span>
+              <span className={`text-lg font-bold ${b.score >= b.max ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                {b.score} / {b.max}
+              </span>
             </div>
-            <div className="text-sm text-slate-600">Javobingiz: <i>{String(b.response ?? '—')}</i></div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-1.5">Sizning javobingiz</div>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40 px-5 py-4 max-h-72 overflow-y-auto">
+              <p className="text-answer text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">
+                {String(b.response ?? '—')}
+              </p>
+            </div>
             {b.graded_by === 'auto' && b.correct === false && (
-              <div className="text-sm text-red-600 mt-1">To'g'ri javob: {String(b.expected)}</div>
+              <div className="text-base text-red-600 dark:text-red-400 mt-2">To'g'ri javob: {String(b.expected)}</div>
             )}
             {b.graded_by === 'ai' && (
-              <div className="mt-2 bg-violet-50 border border-violet-100 rounded-lg p-3">
-                <div className="text-sm text-violet-900">{b.rationale}</div>
+              <div className="mt-3 bg-violet-50 dark:bg-violet-900/30 border border-violet-100 dark:border-violet-800 rounded-lg p-3">
+                <div className="text-base text-violet-900 dark:text-violet-200">{b.rationale}</div>
                 {b.suggestions && b.suggestions.length > 0 && (
-                  <ul className="mt-1 text-xs text-violet-700 list-disc list-inside">
+                  <ul className="mt-1.5 text-sm text-violet-700 dark:text-violet-300 list-disc list-inside space-y-0.5">
                     {b.suggestions.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
@@ -229,11 +236,11 @@ export default function Result() {
 
       {feedback.length > 0 && (
         <>
-          <h2 className="font-semibold mb-2">O'qituvchi feedback'i</h2>
+          <h2 className="text-lg font-semibold mb-2">O'qituvchi feedback'i</h2>
           {feedback.map((f) => (
             <Card key={f.id} className="p-4 mb-2 border-l-4 border-l-amber-400">
-              <div className="text-sm">⭐ {f.rating}/5</div>
-              <div className="text-sm text-slate-700 mt-1">{f.comment}</div>
+              <div className="text-base">⭐ {f.rating}/5</div>
+              <div className="text-base text-slate-700 dark:text-slate-200 mt-1">{f.comment}</div>
             </Card>
           ))}
         </>
@@ -241,7 +248,7 @@ export default function Result() {
 
       {!coaching && (
       <>
-      <h2 className="font-semibold mb-2">Bahoga e'tiroz</h2>
+      <h2 className="text-lg font-semibold mb-2">Bahoga e'tiroz</h2>
       <Card className="p-4 mb-6">
         {myAppeal ? (
           <div className="space-y-2">
@@ -292,7 +299,7 @@ export default function Result() {
 
       {audit.length > 0 && (
         <>
-          <h2 className="font-semibold mb-2">Qaror jurnali</h2>
+          <h2 className="text-lg font-semibold mb-2">Qaror jurnali</h2>
           <Card className="p-4 mb-6">
             <p className="text-xs text-slate-400 mb-3">
               Qora quti emas — bahoyingiz ustidagi har bir qaror qayd etiladi.
