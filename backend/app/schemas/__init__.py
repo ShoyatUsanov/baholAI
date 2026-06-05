@@ -58,6 +58,15 @@ class GradeOverrideIn(BaseModel):
     ai_score: float
 
 
+class AppealIn(BaseModel):
+    submission_id: int
+    reason: str
+
+
+class AppealResolveIn(BaseModel):
+    teacher_response: str
+
+
 class FeedbackIn(BaseModel):
     submission_id: int
     rating: int = 5

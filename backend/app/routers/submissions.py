@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_user, require_roles
-from app.models import Assignment, Grade, OriginalityReport, Session, Submission, User
+from app.models import AuditLog, Assignment, Grade, OriginalityReport, Session, Submission, User
 from app.originality import build_report
 from app.schemas import GradeOverrideIn, SubmissionIn
-from app.serialize import originality_out, submission_out
+from app.serialize import audit_out, originality_out, submission_out
+from app.services.audit import audit_log
 from app.services.grading import grade_submission
 
 router = APIRouter()
@@ -62,6 +63,12 @@ async def submit(
     # award XP proportional to percent
     if result["max_score"]:
         student.xp += round(result["total_score"] / result["max_score"] * 100)
+
+    # Audit trail: the AI made a grading decision (user_id null = AI/system).
+    db.add(audit_log(None, "ai_graded", "submission", sub.id, {
+        "ai_score": result["ai_score"], "total_score": result["total_score"],
+        "confidence": result["confidence"],
+    }))
 
     # Originality signal for the teacher (auto, never a penalty). A new
     # submission can also change a peer's similarity, so refresh matched ones.
@@ -198,8 +205,33 @@ async def approve_grade(
     if not grade:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "baho topilmadi")
     grade.status = "approved"
+    db.add(audit_log(teacher.id, "approved", "submission", submission_id, {
+        "total_score": grade.total_score, "max_score": grade.max_score,
+    }))
     await db.commit()
     return {"submission_id": submission_id, "status": "approved"}
+
+
+@router.get("/{submission_id}/audit")
+async def submission_audit(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Decision journal for a submission — every AI/teacher action, transparent
+    to the student ("qora quti emas")."""
+    rows = (
+        await db.execute(
+            select(AuditLog)
+            .where(AuditLog.entity_type == "submission", AuditLog.entity_id == submission_id)
+            .order_by(AuditLog.created_at.asc())
+        )
+    ).scalars().all()
+    out = []
+    for a in rows:
+        actor = await db.get(User, a.user_id) if a.user_id else None
+        out.append(audit_out(a, user_name=actor.name if actor else None))
+    return out
 
 
 @router.patch("/{submission_id}/grade")
@@ -218,10 +250,14 @@ async def override_grade(
     if not grade:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "baho topilmadi")
 
+    old_ai = round(grade.total_score - grade.objective_score, 1)
     new_ai = max(0.0, min(payload.ai_score, grade.max_score - grade.objective_score))
     grade.total_score = round(grade.objective_score + new_ai, 1)
     grade.was_changed = True
     grade.needs_review = False  # a human has now reviewed it
+    db.add(audit_log(teacher.id, "teacher_edited", "submission", s.id, {
+        "old_ai": old_ai, "new_ai": round(new_ai, 1), "ai_suggested": grade.ai_score,
+    }))
     # award XP delta is out of scope; analytics read total_score directly.
     await db.commit()
     await db.refresh(s)

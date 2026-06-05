@@ -343,6 +343,28 @@ export interface TeacherStudentsResponse {
   students: TeacherStudentRow[];
 }
 
+export interface Appeal {
+  id: number;
+  submission_id: number;
+  student_id: number;
+  reason: string;
+  status: 'open' | 'resolved';
+  teacher_response: string | null;
+  created_at: string | null;
+  student_name?: string | null;
+}
+
+export interface AuditEntry {
+  id: number;
+  user_id: number | null;
+  user_name: string | null;
+  action: 'ai_graded' | 'teacher_edited' | 'approved' | 'appeal_opened' | 'appeal_resolved';
+  entity_type: string;
+  entity_id: number;
+  detail: Record<string, unknown>;
+  created_at: string | null;
+}
+
 export interface ConfidenceBucket {
   bucket: string;
   count: number;

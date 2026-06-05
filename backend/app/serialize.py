@@ -15,6 +15,8 @@ from app.models import (
     Group,
     Institution,
     Lesson,
+    Appeal,
+    AuditLog,
     Message,
     Notification,
     OriginalityReport,
@@ -214,6 +216,22 @@ def activity_out(a: Activity) -> dict:
     return {
         "id": a.id, "user_id": a.user_id, "type": a.type, "title": a.title,
         "score": a.score, "xp": a.xp, "created_at": _iso(a.created_at),
+    }
+
+
+def appeal_out(a: Appeal, student_name: str | None = None) -> dict:
+    return {
+        "id": a.id, "submission_id": a.submission_id, "student_id": a.student_id,
+        "reason": a.reason, "status": a.status, "teacher_response": a.teacher_response,
+        "created_at": _iso(a.created_at), "student_name": student_name,
+    }
+
+
+def audit_out(a: AuditLog, user_name: str | None = None) -> dict:
+    return {
+        "id": a.id, "user_id": a.user_id, "user_name": user_name or ("AI tizimi" if a.user_id is None else None),
+        "action": a.action, "entity_type": a.entity_type, "entity_id": a.entity_id,
+        "detail": a.detail or {}, "created_at": _iso(a.created_at),
     }
 
 

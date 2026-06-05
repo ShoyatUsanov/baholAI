@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 
 import { Card, Stat } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -29,6 +30,31 @@ export default function OverviewPage() {
   return (
     <div className="max-w-4xl">
       <h1 className="text-2xl font-bold mb-5">Umumiy ko'rsatkichlar</h1>
+
+      <Card className="p-5 mb-6 border-l-4 border-l-emerald-500">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="text-emerald-500 shrink-0 mt-0.5" size={28} />
+          <div>
+            <div className="font-semibold">Ma'lumotlar mahalliyligi — "Shaxsga doir ma'lumotlar" qonuniga mos</div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+              Barcha ma'lumotlar mahalliy serverda saqlanadi va tashqi serverga yuborilmaydi.
+              Baholash qarorlari audit jurnaliga yoziladi, o'quvchi e'tiroz bildirish huquqiga ega.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2 text-xs">
+              <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                🗄️ Mahalliy baza (SQLite)
+              </span>
+              <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                {ai?.reachable ? `🤖 Mahalliy AI (Ollama: ${ai.model})` : '⚙️ Mahalliy fallback (tashqi AI yo\'q)'}
+              </span>
+              <span className="badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                📋 Audit jurnali + apellyatsiya
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-4 gap-4 mb-6">
         <Stat label="Muassasalar" value={o.institutions} />
         <Stat label="Fanlar" value={o.subjects} />

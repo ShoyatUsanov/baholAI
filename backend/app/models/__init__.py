@@ -418,6 +418,40 @@ class Activity(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
+# ===========================================================================
+# Trust & compliance — an immutable audit trail of every grading decision and a
+# student's right to contest a grade (Uzbek "Shaxsga doir ma'lumotlar" law).
+# ===========================================================================
+class AuditLog(Base):
+    """Append-only record of grading decisions. user_id is null for AI/system
+    actions; detail keeps the old/new values so a decision is fully auditable."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    action: Mapped[str] = mapped_column(String(32), index=True)
+    # ai_graded | teacher_edited | approved | appeal_opened | appeal_resolved
+    entity_type: Mapped[str] = mapped_column(String(32), default="submission")
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Appeal(Base):
+    """A student's appeal against a grade. Resolving it is the human-review step."""
+
+    __tablename__ = "appeals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(12), default="open")  # open|resolved
+    teacher_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 __all__ = [
     "Institution",
     "Subject",
@@ -444,5 +478,7 @@ __all__ = [
     "Announcement",
     "Notification",
     "Activity",
+    "AuditLog",
+    "Appeal",
     "now",
 ]

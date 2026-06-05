@@ -12,6 +12,7 @@ from app.routers import (
     admin,
     ai,
     analytics,
+    appeals,
     assignments,
     auth,
     feedback,
@@ -48,6 +49,7 @@ app.include_router(subjects.router, prefix="/api/subjects", tags=["subjects"])
 app.include_router(assignments.router, prefix="/api/assignments", tags=["assignments"])
 app.include_router(submissions.router, prefix="/api/submissions", tags=["submissions"])
 app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
+app.include_router(appeals.router, prefix="/api/appeals", tags=["appeals"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])

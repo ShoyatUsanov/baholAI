@@ -14,6 +14,8 @@ import secrets
 from app.db import Base, SessionLocal, engine
 from app.models import (
     Activity,
+    Appeal,
+    AuditLog,
     Announcement,
     ApiKey,
     Assignment,
@@ -37,6 +39,7 @@ from app.models import (
     User,
 )
 from app.originality import build_report
+from app.services.audit import audit_log
 from app.services.grading import grade_submission
 
 # ---------------------------------------------------------------------------
@@ -362,6 +365,8 @@ async def run() -> None:
         rng = random.Random(2026)
         by_username = {s.username: s for s in students}
         all_subs: list[Submission] = []
+        math_subs: dict[str, Submission] = {}
+        math_grades: dict[str, Grade] = {}
         for slug, asg in assignments.items():
             if slug == "matematika":
                 # Deterministic set powering two demos on one assignment:
@@ -400,6 +405,9 @@ async def run() -> None:
                 if slug == "matematika" and st.username == "student5":
                     grade.status = "pending"
                 db.add(grade)
+                if slug == "matematika":
+                    math_subs[st.username] = sub
+                    math_grades[st.username] = grade
                 pct = round(result["total_score"] / result["max_score"] * 100) if result["max_score"] else 0
                 st.xp += pct
                 # Teacher leaves feedback on ~60% of submissions
@@ -455,6 +463,49 @@ async def run() -> None:
                 }],
                 confidence=conf, needs_review=conf < 70, was_changed=abs(ai_v - final_ai) > 0.01,
             ))
+
+        # ---- Appeals + audit trail (Prompt 5: trust & compliance) ----
+        math_teacher = teachers["matematika"]
+        # Per-decision audit entries for the matematika AI grades.
+        for uname, msub in math_subs.items():
+            gr = math_grades[uname]
+            db.add(audit_log(None, "ai_graded", "submission", msub.id, {
+                "ai_score": gr.ai_score, "total_score": gr.total_score, "confidence": gr.confidence,
+            }))
+            if gr.was_changed:
+                db.add(audit_log(math_teacher.id, "teacher_edited", "submission", msub.id, {
+                    "ai_suggested": gr.ai_score, "new_total": gr.total_score,
+                }))
+            if gr.status == "approved":
+                db.add(audit_log(math_teacher.id, "approved", "submission", msub.id, {
+                    "total_score": gr.total_score,
+                }))
+
+        # One open appeal (student1) + one already resolved (student2).
+        s1, s2 = math_subs.get("student1"), math_subs.get("student2")
+        if s1:
+            ap_open = Appeal(
+                submission_id=s1.id, student_id=s1.student_id, status="open",
+                reason="AI insho javobimni juda past baholadi deb o'ylayman. Qayta ko'rib chiqishni so'rayman.",
+            )
+            db.add(ap_open)
+            await db.flush()
+            db.add(Notification(user_id=math_teacher.id, title="Yangi e'tiroz",
+                                body="O'quvchi baho bo'yicha e'tiroz bildirdi.", type="appeal", link="/teacher/appeals"))
+            db.add(audit_log(s1.student_id, "appeal_opened", "appeal", ap_open.id, {"submission_id": s1.id}))
+        if s2:
+            ap_res = Appeal(
+                submission_id=s2.id, student_id=s2.student_id, status="resolved",
+                reason="Ikkinchi mezon bo'yicha ballim past qo'yilgan deb hisoblayman.",
+                teacher_response=(
+                    "E'tirozingiz ko'rib chiqildi. Javobingiz qayta baholandi va ikkinchi mezon "
+                    "bo'yicha ball oshirildi. Rahmat."
+                ),
+            )
+            db.add(ap_res)
+            await db.flush()
+            db.add(audit_log(s2.student_id, "appeal_opened", "appeal", ap_res.id, {"submission_id": s2.id}))
+            db.add(audit_log(math_teacher.id, "appeal_resolved", "appeal", ap_res.id, {"response": "qayta baholandi"}))
 
         # ---- Collections, lessons, decks, tests (per subject) ----
         for slug, cols in COLLECTIONS.items():

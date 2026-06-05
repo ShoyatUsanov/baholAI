@@ -1,22 +1,59 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { AiBadge, Badge, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
+import { AiBadge, Badge, Button, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
-import type { Feedback, Submission } from '@/lib/types';
+import type { Appeal, AuditEntry, Feedback, Submission } from '@/lib/types';
+
+const AUDIT_LABEL: Record<AuditEntry['action'], string> = {
+  ai_graded: '🤖 AI baho qo\'ydi',
+  teacher_edited: '✏️ O\'qituvchi ballni tuzatdi',
+  approved: '✓ O\'qituvchi tasdiqladi',
+  appeal_opened: '📨 E\'tiroz ochildi',
+  appeal_resolved: '✅ E\'tiroz hal qilindi',
+};
+
+function fmtTime(iso: string | null): string {
+  return iso ? new Date(iso).toLocaleString() : '';
+}
 
 export default function Result() {
   const { submissionId } = useParams();
   const [sub, setSub] = useState<Submission | null>(null);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [appeals, setAppeals] = useState<Appeal[]>([]);
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const loadAppeals = useCallback(() => {
+    api.get<Appeal[]>(`/appeals?submission_id=${submissionId}`).then(setAppeals);
+  }, [submissionId]);
 
   useEffect(() => {
     api.get<Submission>(`/submissions/${submissionId}`).then(setSub);
     api.get<Feedback[]>(`/feedback?submission_id=${submissionId}`).then(setFeedback);
-  }, [submissionId]);
+    api.get<AuditEntry[]>(`/submissions/${submissionId}/audit`).then(setAudit);
+    loadAppeals();
+  }, [submissionId, loadAppeals]);
+
+  const submitAppeal = async () => {
+    if (!reason.trim()) return;
+    setBusy(true);
+    try {
+      await api.post('/appeals', { submission_id: Number(submissionId), reason });
+      setReason('');
+      setShowForm(false);
+      loadAppeals();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!sub || !sub.grade) return <div className="text-slate-400">Yuklanmoqda…</div>;
   const g = sub.grade;
+  const myAppeal = appeals[0] ?? null;
 
   return (
     <div className="max-w-2xl">
@@ -97,6 +134,73 @@ export default function Result() {
               <div className="text-sm text-slate-700 mt-1">{f.comment}</div>
             </Card>
           ))}
+        </>
+      )}
+
+      <h2 className="font-semibold mb-2">Bahoga e'tiroz</h2>
+      <Card className="p-4 mb-6">
+        {myAppeal ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge color={myAppeal.status === 'open' ? 'amber' : 'green'}>
+                {myAppeal.status === 'open' ? "⏳ Ko'rib chiqilmoqda" : '✅ Hal qilindi'}
+              </Badge>
+              <span className="text-xs text-slate-400">{fmtTime(myAppeal.created_at)}</span>
+            </div>
+            <div className="text-sm"><span className="text-slate-500">Sababingiz:</span> {myAppeal.reason}</div>
+            {myAppeal.teacher_response && (
+              <div className="text-sm bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg p-3">
+                <span className="font-medium">O'qituvchi javobi:</span> {myAppeal.teacher_response}
+              </div>
+            )}
+          </div>
+        ) : showForm ? (
+          <div className="space-y-2">
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Nega bu bahoga rozi emassiz? Sababini yozing…"
+              className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
+            />
+            <div className="flex gap-2">
+              <Button onClick={submitAppeal} disabled={busy || !reason.trim()}>
+                {busy ? 'Yuborilmoqda…' : "E'tirozni yuborish"}
+              </Button>
+              <button onClick={() => setShowForm(false)} className="text-sm text-slate-500 hover:underline">
+                Bekor
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-slate-500">
+              Baho adolatsiz deb hisoblasangiz, o'qituvchiga e'tiroz bildiring.
+            </div>
+            <Button variant="outline" onClick={() => setShowForm(true)} className="whitespace-nowrap">
+              Bahoga e'tiroz bildirish
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      {audit.length > 0 && (
+        <>
+          <h2 className="font-semibold mb-2">Qaror jurnali</h2>
+          <Card className="p-4 mb-6">
+            <p className="text-xs text-slate-400 mb-3">
+              Qora quti emas — bahoyingiz ustidagi har bir qaror qayd etiladi.
+            </p>
+            <div className="space-y-2">
+              {audit.map((e) => (
+                <div key={e.id} className="flex items-center gap-2 text-sm">
+                  <span className="flex-1">{AUDIT_LABEL[e.action] ?? e.action}</span>
+                  {e.user_name && <span className="text-xs text-slate-400">{e.user_name}</span>}
+                  <span className="text-xs text-slate-400">{fmtTime(e.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
         </>
       )}
     </div>
