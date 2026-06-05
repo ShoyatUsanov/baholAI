@@ -8,6 +8,7 @@ from app.models import (
     ApiKey,
     Assignment,
     Attendance,
+    CheckQuestion,
     Collection,
     Deck,
     Feedback,
@@ -61,6 +62,8 @@ def assignment_out(a: Assignment) -> dict:
         "id": a.id, "subject_id": a.subject_id, "teacher_id": a.teacher_id,
         "institution_id": a.institution_id, "title": a.title, "description": a.description,
         "method": a.method, "questions": a.questions, "rubric": a.rubric or [],
+        "allow_resubmission": a.allow_resubmission, "max_attempts": a.max_attempts,
+        "resubmission_mode": a.resubmission_mode,
         "target_student_ids": a.target_student_ids,
         "due_at": a.due_at.isoformat() if a.due_at else None,
         "created_at": a.created_at.isoformat(),
@@ -102,9 +105,18 @@ def submission_out(
     return {
         "id": s.id, "assignment_id": s.assignment_id, "student_id": s.student_id,
         "answers": s.answers, "status": s.status,
+        "attempt_no": s.attempt_no, "parent_submission_id": s.parent_submission_id,
         "submitted_at": s.submitted_at.isoformat(),
         "grade": grade_out(grade if grade is not None else s.grade),
         "originality": originality_out(originality),
+    }
+
+
+def ccq_out(c: CheckQuestion) -> dict:
+    return {
+        "id": c.id, "submission_id": c.submission_id, "criterion": c.criterion,
+        "question_text": c.question_text, "addressed": c.addressed,
+        "created_at": _iso(c.created_at),
     }
 
 

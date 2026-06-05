@@ -48,6 +48,9 @@ export interface Assignment {
   method: string;
   questions: Question[];
   rubric?: RubricItem[];
+  allow_resubmission?: boolean;
+  max_attempts?: number;
+  resubmission_mode?: string;
   target_student_ids: number[];
   due_at?: string | null;
   created_at: string;
@@ -122,9 +125,20 @@ export interface Submission {
   student_id: number;
   answers: Record<string, unknown>;
   status: string;
+  attempt_no?: number;
+  parent_submission_id?: number | null;
   submitted_at: string;
   grade: Grade | null;
   originality?: OriginalityReport | null;
+}
+
+export interface CheckQuestion {
+  id: number;
+  submission_id: number;
+  criterion: string;
+  question_text: string;
+  addressed: boolean;
+  created_at: string | null;
 }
 
 export interface Feedback {

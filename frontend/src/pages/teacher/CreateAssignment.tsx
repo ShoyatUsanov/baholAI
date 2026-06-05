@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Badge, Button, Card } from '@/components/ui';
+import { Badge, Button, Card, InfoTooltip } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { COACHING_HINT } from '@/lib/labels';
 import type { Method, QType } from '@/lib/types';
 
 interface Draft {
@@ -34,6 +35,8 @@ export default function CreateAssignment() {
   const [method, setMethod] = useState('standard');
   const [methods, setMethods] = useState<Method[]>([]);
   const [questions, setQuestions] = useState<Draft[]>([newQ()]);
+  const [allowResub, setAllowResub] = useState(false);
+  const [maxAttempts, setMaxAttempts] = useState(2);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +73,8 @@ export default function CreateAssignment() {
             answer: q.answer,
           };
         }),
+        allow_resubmission: allowResub,
+        max_attempts: maxAttempts,
       };
       await api.post('/assignments', payload);
       navigate('/teacher/assignments');
@@ -174,6 +179,40 @@ export default function CreateAssignment() {
       <button onClick={() => setQuestions((qs) => [...qs, newQ()])} className="mt-3 text-sm text-indigo-600">
         + savol qo'shish
       </button>
+
+      <Card className="p-4 mt-4">
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allowResub}
+            onChange={(e) => setAllowResub(e.target.checked)}
+            className="mt-1 w-4 h-4 accent-indigo-600"
+          />
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 font-medium text-sm">
+              Qayta topshirishga ruxsat (AI murabbiyligi bilan)
+              <InfoTooltip text={COACHING_HINT} />
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Kichik xatoda AI o'quvchiga aniqlovchi savol beradi va o'zi tuzatishga yo'naltiradi —
+              sizga faqat murakkab holatlar qoladi.
+            </p>
+          </div>
+        </label>
+        {allowResub && (
+          <div className="flex items-center gap-2 mt-3 pl-7 text-sm">
+            <span className="text-slate-500">Urinishlar soni:</span>
+            <input
+              type="number"
+              min={2}
+              max={5}
+              value={maxAttempts}
+              onChange={(e) => setMaxAttempts(Math.max(2, Number(e.target.value) || 2))}
+              className="w-16 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-2 py-1"
+            />
+          </div>
+        )}
+      </Card>
 
       {error && <div className="text-sm text-red-600 mt-3">{error}</div>}
       <div className="mt-4">

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
 import HelpBanner from '@/components/HelpBanner';
 import { useToast } from '@/components/Toast';
 import { AiBadge, Badge, Button, Card, ConfidenceBadge, InfoTooltip, PercentBar, RubricBreakdown, VerificationBadge } from '@/components/ui';
 import { api } from '@/lib/api';
-import { GRADED_BY, HINTS } from '@/lib/labels';
-import type { Appeal, AuditEntry, Feedback, Submission } from '@/lib/types';
+import { COACHING_HINT, GRADED_BY, HINTS } from '@/lib/labels';
+import type { Appeal, Assignment, AuditEntry, CheckQuestion, Feedback, Question, Submission } from '@/lib/types';
 
 const AUDIT_LABEL: Record<AuditEntry['action'], string> = {
   ai_graded: '🤖 AI baho qo\'ydi',
@@ -22,6 +23,7 @@ function fmtTime(iso: string | null): string {
 
 export default function Result() {
   const { submissionId } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const [sub, setSub] = useState<Submission | null>(null);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
@@ -30,6 +32,11 @@ export default function Result() {
   const [showForm, setShowForm] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const [ccqs, setCcqs] = useState<CheckQuestion[]>([]);
+  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [editAnswers, setEditAnswers] = useState<Record<string, string>>({});
+  const [resubmitting, setResubmitting] = useState(false);
 
   const loadAppeals = useCallback(() => {
     api.get<Appeal[]>(`/appeals?submission_id=${submissionId}`).then(setAppeals);
@@ -41,6 +48,26 @@ export default function Result() {
     api.get<AuditEntry[]>(`/submissions/${submissionId}/audit`).then(setAudit);
     loadAppeals();
   }, [submissionId, loadAppeals]);
+
+  // Coaching: fetch the check-questions + assignment so the student can fix & resubmit.
+  useEffect(() => {
+    if (!sub || sub.status !== 'coaching') return;
+    api.get<CheckQuestion[]>(`/submissions/${sub.id}/ccq`).then(setCcqs);
+    api.get<Assignment>(`/assignments/${sub.assignment_id}`).then(setAssignment);
+    setEditAnswers(Object.fromEntries(Object.entries(sub.answers).map(([k, v]) => [k, String(v ?? '')])));
+  }, [sub]);
+
+  const resubmit = async () => {
+    if (!sub) return;
+    setResubmitting(true);
+    try {
+      const next = await api.post<Submission>(`/submissions/${sub.id}/resubmit`, { answers: editAnswers });
+      toast.success(next.status === 'coaching' ? 'Qayta topshirildi — yana bir savol bor' : 'Qayta topshirildi! ✓');
+      navigate(`/student/result/${next.id}`);
+    } finally {
+      setResubmitting(false);
+    }
+  };
 
   const submitAppeal = async () => {
     if (!reason.trim()) return;
@@ -59,6 +86,10 @@ export default function Result() {
   if (!sub || !sub.grade) return <div className="text-slate-400">Yuklanmoqda…</div>;
   const g = sub.grade;
   const myAppeal = appeals[0] ?? null;
+  const coaching = sub.status === 'coaching';
+  const openQuestions: Question[] = (assignment?.questions ?? []).filter(
+    (q) => q.ai_graded || q.type === 'short' || q.type === 'essay',
+  );
 
   return (
     <div className="max-w-2xl">
@@ -70,7 +101,57 @@ export default function Result() {
         pastdan <b>e'tiroz</b> bildiring.
       </HelpBanner>
 
-      {g.status === 'pending' ? (
+      {coaching && (
+        <Card className="p-5 mb-5 border-l-4 border-l-primary-500 bg-primary-50/40 dark:bg-primary-900/10">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-gradient grid place-items-center shrink-0">
+              <Sparkles size={20} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-bold text-lg">Deyarli to'g'ri! 🎯</h2>
+                <InfoTooltip text={COACHING_HINT} />
+                {assignment && (
+                  <Badge color="indigo">{assignment.max_attempts} dan {sub.attempt_no ?? 1}-urinish</Badge>
+                )}
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
+                Quyidagi savol(lar)ga e'tibor berib javobingizni yaxshilang va qayta topshiring.
+                Bu hali o'qituvchiga yuborilmadi — avval o'zingiz tuzatib ko'ring.
+              </p>
+            </div>
+          </div>
+
+          {ccqs.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {ccqs.map((c) => (
+                <div key={c.id} className="rounded-lg bg-white dark:bg-slate-800 border border-primary-100 dark:border-primary-900/40 p-3">
+                  <div className="text-xs text-primary-600 dark:text-primary-400 font-medium mb-0.5">❓ {c.criterion}</div>
+                  <div className="text-sm text-slate-700 dark:text-slate-200">{c.question_text}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {openQuestions.map((q) => (
+            <div key={q.id} className="mb-3">
+              <div className="text-sm font-medium mb-1">{q.prompt}</div>
+              <textarea
+                value={editAnswers[q.id] ?? ''}
+                onChange={(e) => setEditAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                rows={3}
+                className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          ))}
+
+          <Button onClick={resubmit} disabled={resubmitting}>
+            {resubmitting ? 'Topshirilmoqda…' : '🔄 Qayta topshirish'}
+          </Button>
+        </Card>
+      )}
+
+      {coaching ? null : g.status === 'pending' ? (
         <div className="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
           ⏳ Natija o'qituvchi tasdig'ini kutmoqda. Quyidagi balllar AI taklifi — yakuniy emas.
         </div>
@@ -158,6 +239,8 @@ export default function Result() {
         </>
       )}
 
+      {!coaching && (
+      <>
       <h2 className="font-semibold mb-2">Bahoga e'tiroz</h2>
       <Card className="p-4 mb-6">
         {myAppeal ? (
@@ -204,6 +287,8 @@ export default function Result() {
           </div>
         )}
       </Card>
+      </>
+      )}
 
       {audit.length > 0 && (
         <>

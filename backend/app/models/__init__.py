@@ -115,6 +115,11 @@ class Assignment(Base):
     questions: Mapped[list] = mapped_column(JSON, default=list)
     # Optional grading rubric for open answers: [{criterion, max_points, description}].
     rubric: Mapped[list] = mapped_column(JSON, default=list)
+    # AI-coached resubmission: minor mistakes get a check-question loop before the
+    # teacher sees them.
+    allow_resubmission: Mapped[bool] = mapped_column(Boolean, default=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=2)
+    resubmission_mode: Mapped[str] = mapped_column(String(20), default="ai_coached")
     target_student_ids: Mapped[list] = mapped_column(JSON, default=list)  # empty = all students
     due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -127,7 +132,9 @@ class Submission(Base):
     assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id"), index=True)
     student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     answers: Mapped[dict] = mapped_column(JSON, default=dict)  # {question_id: response}
-    status: Mapped[str] = mapped_column(String(20), default="submitted")
+    status: Mapped[str] = mapped_column(String(20), default="submitted")  # draft|coaching|submitted|graded
+    attempt_no: Mapped[int] = mapped_column(Integer, default=1)
+    parent_submission_id: Mapped[int | None] = mapped_column(ForeignKey("submissions.id"), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     grade: Mapped["Grade | None"] = relationship(
@@ -206,6 +213,20 @@ class OriginalityReport(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     submission: Mapped[Submission] = relationship(back_populates="originality")
+
+
+class CheckQuestion(Base):
+    """A targeted concept-check question (CCQ) the AI asks a student about a minor
+    mistake, so they can fix it themselves before the teacher reviews."""
+
+    __tablename__ = "check_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id"), index=True)
+    criterion: Mapped[str] = mapped_column(String(120))
+    question_text: Mapped[str] = mapped_column(Text)
+    addressed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
 # ===========================================================================
@@ -516,6 +537,7 @@ __all__ = [
     "Grade",
     "Feedback",
     "OriginalityReport",
+    "CheckQuestion",
     "Collection",
     "Lesson",
     "Deck",

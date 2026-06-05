@@ -51,12 +51,18 @@ class AssignmentIn(BaseModel):
     method: str = "standard"
     questions: list[dict[str, Any]] = []
     rubric: list[dict[str, Any]] = []
+    allow_resubmission: bool = False
+    max_attempts: int = 2
     target_student_ids: list[int] = []
     due_at: datetime | None = None
 
 
 class SubmissionIn(BaseModel):
     assignment_id: int
+    answers: dict[str, Any] = {}
+
+
+class ResubmitIn(BaseModel):
     answers: dict[str, Any] = {}
 
 

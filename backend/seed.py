@@ -12,11 +12,14 @@ import asyncio
 import secrets
 
 from app.db import Base, SessionLocal, engine
+from sqlalchemy import select
+
 from app.models import (
     Activity,
     AnswerFingerprint,
     Appeal,
     AuditLog,
+    CheckQuestion,
     Announcement,
     ApiKey,
     Assignment,
@@ -587,6 +590,26 @@ async def run() -> None:
                 ai_provider=res["ai_provider"], rubric_breakdown=res["rubric_breakdown"],
                 confidence=res["confidence"], needs_review=res["needs_review"], status="approved",
             ))
+
+        # ---- AI coaching / resubmission demo (draft → CCQ → fix) ----
+        from app.routers.submissions import _grade_into_submission
+        fiz_asg = assignments["fizika"]
+        fiz_asg.allow_resubmission = True
+        fiz_asg.max_attempts = 2
+        await db.flush()
+        PARTIAL = {"q1": "2-qonun", "q2": "true",
+                   "q3": "Har bir ta'sirga teng va qarama-qarshi aks ta'sir bo'ladi."}
+        FULL = {"q1": "2-qonun", "q2": "true",
+                "q3": "Har bir ta'sirga teng va qarama-qarshi aks ta'sir bor; masalan, raketa gaz chiqarib oldinga harakatlanadi."}
+
+        # student1 — coaching holatida qoladi (CCQ olgan, hali tuzatmagan).
+        await _grade_into_submission(db, fiz_asg, by_username["student1"], dict(PARTIAL), {}, attempt_no=1, parent_id=None)
+
+        # student2 — coaching, keyin yaxshilab qayta topshirgan → graded.
+        c2a1, _, _ = await _grade_into_submission(db, fiz_asg, by_username["student2"], dict(PARTIAL), {}, attempt_no=1, parent_id=None)
+        for cq in (await db.execute(select(CheckQuestion).where(CheckQuestion.submission_id == c2a1.id))).scalars().all():
+            cq.addressed = True
+        await _grade_into_submission(db, fiz_asg, by_username["student2"], dict(FULL), {}, attempt_no=2, parent_id=c2a1.id)
 
         # ---- Collections, lessons, decks, tests (per subject) ----
         for slug, cols in COLLECTIONS.items():

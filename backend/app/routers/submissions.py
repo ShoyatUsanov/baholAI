@@ -11,10 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.deps import get_current_user, require_roles
-from app.models import AuditLog, Assignment, Grade, OriginalityReport, Session, Submission, User
+from app.models import (
+    AuditLog,
+    Assignment,
+    CheckQuestion,
+    Grade,
+    OriginalityReport,
+    Session,
+    Submission,
+    User,
+)
 from app.originality import build_report
-from app.schemas import GradeOverrideIn, SubmissionIn
-from app.serialize import audit_out, originality_out, submission_out
+from app.refine import generate_ccqs, should_coach
+from app.schemas import GradeOverrideIn, ResubmitIn, SubmissionIn
+from app.serialize import audit_out, ccq_out, originality_out, submission_out
 from app.services.audit import audit_log
 from app.services.billing import ai_graded_this_month, current_features, require_feature
 from app.services.grading import grade_submission
@@ -25,6 +35,63 @@ router = APIRouter()
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+async def _grade_into_submission(db, assignment, student, answers, feats, attempt_no, parent_id):
+    """Create a submission, grade it (fingerprint + 3-pass), award XP, audit, and
+    decide coaching vs teacher. Coaching → CCQs + student notification (hidden from
+    the teacher queue); otherwise → graded + optional teacher review notice."""
+    sub = Submission(
+        assignment_id=assignment.id, student_id=student.id, answers=answers,
+        status="graded", attempt_no=attempt_no, parent_submission_id=parent_id,
+    )
+    db.add(sub)
+    await db.flush()
+
+    result = await grade_submission(
+        assignment.questions or [], answers or {}, assignment.rubric or [],
+        db=db, assignment_id=assignment.id,
+    )
+    grade = Grade(
+        submission_id=sub.id,
+        objective_score=result["objective_score"], ai_score=result["ai_score"],
+        total_score=result["total_score"], max_score=result["max_score"],
+        breakdown=result["breakdown"], ai_provider=result["ai_provider"],
+        rubric_breakdown=result["rubric_breakdown"], confidence=result["confidence"],
+        needs_review=result["needs_review"],
+        status="pending" if result["rubric_breakdown"] else "approved",
+    )
+    db.add(grade)
+    if result["max_score"] and feats.get("xp_rewards"):
+        pct = round(result["total_score"] / result["max_score"] * 100)
+        student.xp += pct * int(feats.get("xp_multiplier", 1) or 1)
+    db.add(audit_log(None, "ai_graded", "submission", sub.id, {
+        "ai_score": result["ai_score"], "total_score": result["total_score"],
+        "confidence": result["confidence"],
+    }))
+
+    # AI coaching: only minor, fixable mistakes loop back to the student.
+    coaching = should_coach(result, assignment.allow_resubmission, attempt_no, assignment.max_attempts)
+    ccqs = await generate_ccqs(result) if coaching else []
+    if coaching and ccqs:
+        sub.status = "coaching"
+        for cq in ccqs:
+            db.add(CheckQuestion(submission_id=sub.id, criterion=cq["criterion"], question_text=cq["question_text"]))
+        create_notification(
+            db, student.id, "grade", "Aniqlovchi savol bor",
+            body=f"Deyarli to'g'ri! {len(ccqs)} ta savolga javob berib qayta topshiring.",
+            link=f"/student/result/{sub.id}",
+        )
+    elif result["needs_review"]:
+        create_notification(
+            db, assignment.teacher_id, "grade", "Ko'rib chiqish kerak",
+            body="AI past ishonch bilan baholadi — tasdiqlang.", link="/teacher/grading",
+        )
+
+    report = await build_report(sub.id, db)
+    for mid in (report.matched_submission_ids if report else []):
+        await build_report(mid, db)
+    return sub, grade, report
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -50,59 +117,57 @@ async def submit(
                 f"Free tarifda oyiga {limit} ta AI baholash mavjud. Tarifni yangilang.",
             )
 
-    sub = Submission(
-        assignment_id=assignment.id, student_id=student.id,
-        answers=payload.answers, status="graded",
+    sub, grade, report = await _grade_into_submission(
+        db, assignment, student, payload.answers or {}, feats, attempt_no=1, parent_id=None,
     )
-    db.add(sub)
-    await db.flush()  # get sub.id
-
-    result = await grade_submission(
-        assignment.questions or [], payload.answers or {}, assignment.rubric or [],
-        db=db, assignment_id=assignment.id,
-    )
-    grade = Grade(
-        submission_id=sub.id,
-        objective_score=result["objective_score"],
-        ai_score=result["ai_score"],
-        total_score=result["total_score"],
-        max_score=result["max_score"],
-        breakdown=result["breakdown"],
-        ai_provider=result["ai_provider"],
-        rubric_breakdown=result["rubric_breakdown"],
-        confidence=result["confidence"],
-        needs_review=result["needs_review"],
-        # AI-graded (open) answers land as a draft awaiting teacher approval.
-        status="pending" if result["rubric_breakdown"] else "approved",
-    )
-    db.add(grade)
-    # award XP proportional to percent — gated by plan (Free: no XP rewards).
-    if result["max_score"] and feats.get("xp_rewards"):
-        pct = round(result["total_score"] / result["max_score"] * 100)
-        student.xp += pct * int(feats.get("xp_multiplier", 1) or 1)
-
-    # Audit trail: the AI made a grading decision (user_id null = AI/system).
-    db.add(audit_log(None, "ai_graded", "submission", sub.id, {
-        "ai_score": result["ai_score"], "total_score": result["total_score"],
-        "confidence": result["confidence"],
-    }))
-
-    # Low-confidence AI grade → ask the teacher to review.
-    if result["needs_review"]:
-        create_notification(
-            db, assignment.teacher_id, "grade", "Ko'rib chiqish kerak",
-            body="AI past ishonch bilan baholadi — tasdiqlang.", link="/teacher/grading",
-        )
-
-    # Originality signal for the teacher (auto, never a penalty). A new
-    # submission can also change a peer's similarity, so refresh matched ones.
-    report = await build_report(sub.id, db)
-    for mid in (report.matched_submission_ids if report else []):
-        await build_report(mid, db)
-
     await db.commit()
     await db.refresh(sub)
     return submission_out(sub, grade, report)
+
+
+@router.post("/{submission_id}/resubmit", status_code=status.HTTP_201_CREATED)
+async def resubmit(
+    submission_id: int,
+    payload: ResubmitIn,
+    db: AsyncSession = Depends(get_db),
+    student: User = Depends(get_current_user),
+) -> dict:
+    """Student fixes a coached submission — a new attempt is graded; the parent's
+    check-questions are marked addressed."""
+    orig = await db.get(Submission, submission_id)
+    if not orig or orig.student_id != student.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "topshiriq topilmadi")
+    assignment = await db.get(Assignment, orig.assignment_id)
+    if not assignment or not assignment.allow_resubmission:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "qayta topshirish yoqilmagan")
+    if orig.attempt_no >= assignment.max_attempts:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "urinishlar tugadi")
+
+    for cq in (await db.execute(select(CheckQuestion).where(CheckQuestion.submission_id == orig.id))).scalars().all():
+        cq.addressed = True
+
+    feats = await current_features(db, student.id)
+    sub, grade, report = await _grade_into_submission(
+        db, assignment, student, payload.answers or {}, feats,
+        attempt_no=orig.attempt_no + 1, parent_id=orig.id,
+    )
+    await db.commit()
+    await db.refresh(sub)
+    return submission_out(sub, grade, report)
+
+
+@router.get("/{submission_id}/ccq")
+async def submission_ccq(
+    submission_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> list[dict]:
+    rows = (
+        await db.execute(
+            select(CheckQuestion).where(CheckQuestion.submission_id == submission_id).order_by(CheckQuestion.created_at)
+        )
+    ).scalars().all()
+    return [ccq_out(c) for c in rows]
 
 
 @router.get("")
@@ -114,6 +179,9 @@ async def list_submissions(
     q = select(Submission).order_by(Submission.submitted_at.desc())
     if assignment_id:
         q = q.where(Submission.assignment_id == assignment_id)
+        # Teacher queue: hide submissions the student is still coaching-fixing.
+        if not student_id:
+            q = q.where(Submission.status != "coaching")
     if student_id:
         q = q.where(Submission.student_id == student_id)
     rows = (await db.execute(q)).scalars().all()

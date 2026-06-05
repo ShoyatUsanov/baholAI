@@ -40,9 +40,13 @@ export const CLASSIFICATION: Record<string, { label: string; color: string }> = 
 export const VERIFICATION_HINT =
   "Har ball sizning javobingizdagi aniq matn bilan isbotlangan (3 bosqich: klassifikatsiya → dalil → ball). Bu AI xatosini kamaytiradi.";
 
+export const COACHING_HINT =
+  "AI sizga kichik xatoni o'zingiz tuzatishingizga yordam beradi. Bu o'qituvchi vaqtini tejaydi va baholaringizni yaxshilaydi.";
+
 export const SUB_STATUS: Record<string, string> = {
   graded: 'Baholandi',
   submitted: 'Topshirildi',
+  coaching: 'Tuzatish kutilmoqda',
 };
 
 export const SUBSCRIPTION_STATUS: Record<string, string> = {

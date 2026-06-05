@@ -61,6 +61,8 @@ async def create_assignment(
         method=payload.method,
         questions=payload.questions,
         rubric=payload.rubric,
+        allow_resubmission=payload.allow_resubmission,
+        max_attempts=payload.max_attempts,
         target_student_ids=payload.target_student_ids,
         due_at=payload.due_at,
     )
