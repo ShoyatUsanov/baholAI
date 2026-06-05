@@ -18,6 +18,7 @@ from app.routers import (
     feedback,
     learning,
     meta,
+    notifications,
     ops,
     public_api,
     subjects,
@@ -50,6 +51,7 @@ app.include_router(assignments.router, prefix="/api/assignments", tags=["assignm
 app.include_router(submissions.router, prefix="/api/submissions", tags=["submissions"])
 app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
 app.include_router(appeals.router, prefix="/api/appeals", tags=["appeals"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])

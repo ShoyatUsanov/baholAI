@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, LogOut, Menu, Search, Settings, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { LogOut, Menu, Search, Settings, User } from 'lucide-react';
 
+import NotificationBell from '@/components/NotificationBell';
 import { Avatar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 
@@ -36,11 +37,8 @@ export default function Topbar({ title, onMenu }: { title: string; onMenu: () =>
         </span>
       )}
 
-      {/* Bildirishnoma (Prompt 5 da to'liqlanadi) */}
-      <Link to="/notifications" className="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60" title="Bildirishnomalar">
-        <Bell size={19} />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-[var(--surface)]" />
-      </Link>
+      {/* Bildirishnoma markazi */}
+      <NotificationBell />
 
       {/* Avatar dropdown */}
       <div className="relative">

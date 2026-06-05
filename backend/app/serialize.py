@@ -208,7 +208,8 @@ def announcement_out(a: Announcement) -> dict:
 def notification_out(n: Notification) -> dict:
     return {
         "id": n.id, "user_id": n.user_id, "title": n.title, "body": n.body,
-        "type": n.type, "read": n.read, "link": n.link, "created_at": _iso(n.created_at),
+        "type": n.type, "read": n.read, "is_read": n.read, "link": n.link,
+        "created_at": _iso(n.created_at),
     }
 
 

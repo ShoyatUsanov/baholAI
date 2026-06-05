@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, Eye, EyeOff, GraduationCap, Loader2, Shield, User } from 'lucide-react';
 
 import AuthLayout from '@/components/AuthLayout';
+import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import type { Role } from '@/lib/types';
@@ -21,6 +22,7 @@ function homeFor(role: Role) {
 
 export default function Login() {
   const { login } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -46,9 +48,12 @@ export default function Login() {
       const user = await login(username.trim(), password);
       if (remember) localStorage.setItem(REMEMBER_KEY, username.trim());
       else localStorage.removeItem(REMEMBER_KEY);
+      toast.success(`Xush kelibsiz, ${user.name.split(' ')[0]}!`);
       navigate(homeFor(user.role));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kirishda xatolik');
+      const msg = err instanceof Error ? err.message : 'Kirishda xatolik';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

@@ -37,6 +37,7 @@ from app.serialize import (
     payment_out,
     schedule_out,
 )
+from app.services.notify import create_notification
 
 router = APIRouter()
 TEACHER = require_roles("teacher", "institution_admin", "superadmin")
@@ -181,6 +182,18 @@ async def list_announcements(db: AsyncSession = Depends(get_db)) -> list[dict]:
 async def create_announcement(payload: AnnouncementIn, db: AsyncSession = Depends(get_db), teacher: User = Depends(TEACHER)) -> dict:
     a = Announcement(title=payload.title, body=payload.body, created_by=teacher.id, audience=payload.audience)
     db.add(a)
+    await db.flush()
+
+    # Fan-out to the audience as in-app notifications.
+    target_roles = {"students": ["student"], "teachers": ["teacher"]}.get(payload.audience, ["student", "teacher"])
+    ids = (
+        await db.execute(
+            select(User.id).where(User.role.in_(target_roles), User.active.is_(True), User.id != teacher.id)
+        )
+    ).scalars().all()
+    for uid in ids:
+        create_notification(db, uid, "announcement", payload.title, body=(payload.body or "")[:120], link="/notifications")
+
     await db.commit()
     await db.refresh(a)
     return announcement_out(a)

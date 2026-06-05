@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { PageHeader } from '@/components/Layout';
+import { useToast } from '@/components/Toast';
 import { Badge, Button, Card, Empty, Spinner } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { Appeal } from '@/lib/types';
@@ -40,6 +41,7 @@ export default function Appeals() {
 }
 
 function AppealCard({ a, onResolved }: { a: Appeal; onResolved: () => void }) {
+  const toast = useToast();
   const [response, setResponse] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -49,6 +51,7 @@ function AppealCard({ a, onResolved }: { a: Appeal; onResolved: () => void }) {
     try {
       await api.post(`/appeals/${a.id}/resolve`, { teacher_response: response });
       onResolved();
+      toast.success('E\'tirozga javob berildi');
     } finally {
       setBusy(false);
     }

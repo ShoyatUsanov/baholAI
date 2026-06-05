@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
 
+import { useToast } from '@/components/Toast';
 import { AiBadge, Badge, Button, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -159,6 +160,7 @@ function GradeRow({
   subNameById: Record<number, string>;
   onChanged: () => void;
 }) {
+  const toast = useToast();
   const [rating, setRating] = useState(4);
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
@@ -183,6 +185,7 @@ function GradeRow({
       await api.patch(`/submissions/${sub.id}/grade`, { ai_score: aiVal });
       setEditing(false);
       onChanged();
+      toast.success('AI ball saqlandi');
     } finally {
       setSavingGrade(false);
     }
@@ -194,6 +197,7 @@ function GradeRow({
     try {
       await api.post(`/submissions/${sub.id}/grade/approve`);
       onChanged();
+      toast.success("Baho tasdiqlandi — o'quvchiga ko'rinadi");
     } finally {
       setApproving(false);
     }
@@ -222,6 +226,7 @@ function GradeRow({
     try {
       await api.post('/feedback', { submission_id: sub.id, rating, comment });
       setSent(true);
+      toast.success('Feedback yuborildi');
     } finally {
       setBusy(false);
     }

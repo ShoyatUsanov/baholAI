@@ -17,6 +17,7 @@ from app.schemas import GradeOverrideIn, SubmissionIn
 from app.serialize import audit_out, originality_out, submission_out
 from app.services.audit import audit_log
 from app.services.grading import grade_submission
+from app.services.notify import create_notification
 
 router = APIRouter()
 
@@ -69,6 +70,13 @@ async def submit(
         "ai_score": result["ai_score"], "total_score": result["total_score"],
         "confidence": result["confidence"],
     }))
+
+    # Low-confidence AI grade → ask the teacher to review.
+    if result["needs_review"]:
+        create_notification(
+            db, assignment.teacher_id, "grade", "Ko'rib chiqish kerak",
+            body="AI past ishonch bilan baholadi — tasdiqlang.", link="/teacher/grading",
+        )
 
     # Originality signal for the teacher (auto, never a penalty). A new
     # submission can also change a peer's similarity, so refresh matched ones.
@@ -208,6 +216,12 @@ async def approve_grade(
     db.add(audit_log(teacher.id, "approved", "submission", submission_id, {
         "total_score": grade.total_score, "max_score": grade.max_score,
     }))
+    sub = await db.get(Submission, submission_id)
+    if sub:
+        create_notification(
+            db, sub.student_id, "grade", "Bahongiz tayyor",
+            body="O'qituvchi bahoyingizni tasdiqladi.", link=f"/student/result/{submission_id}",
+        )
     await db.commit()
     return {"submission_id": submission_id, "status": "approved"}
 

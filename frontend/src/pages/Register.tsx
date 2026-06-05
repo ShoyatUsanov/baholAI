@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, Eye, EyeOff, GraduationCap, Loader2, User } from 'lucide-react';
 
 import AuthLayout from '@/components/AuthLayout';
+import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import type { Role } from '@/lib/types';
@@ -49,6 +50,7 @@ function Field({
 
 export default function Register() {
   const { register } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -83,9 +85,12 @@ export default function Register() {
     setBusy(true);
     try {
       const user = await register({ name: name.trim(), username: username.trim(), email: email.trim(), password, role });
+      toast.success('Hisob yaratildi. Xush kelibsiz!');
       navigate(homeFor(user.role));
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : "Ro'yxatdan o'tishda xatolik");
+      const msg = err instanceof Error ? err.message : "Ro'yxatdan o'tishda xatolik";
+      setServerError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }

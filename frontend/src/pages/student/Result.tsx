@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { useToast } from '@/components/Toast';
 import { AiBadge, Badge, Button, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { Appeal, AuditEntry, Feedback, Submission } from '@/lib/types';
@@ -19,6 +20,7 @@ function fmtTime(iso: string | null): string {
 
 export default function Result() {
   const { submissionId } = useParams();
+  const toast = useToast();
   const [sub, setSub] = useState<Submission | null>(null);
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [appeals, setAppeals] = useState<Appeal[]>([]);
@@ -46,6 +48,7 @@ export default function Result() {
       setReason('');
       setShowForm(false);
       loadAppeals();
+      toast.success("E'tiroz yuborildi — o'qituvchi ko'rib chiqadi");
     } finally {
       setBusy(false);
     }
