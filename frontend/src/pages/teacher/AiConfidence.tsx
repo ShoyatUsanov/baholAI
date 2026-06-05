@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import HelpBanner from '@/components/HelpBanner';
 import { PageHeader } from '@/components/Layout';
 import { Card, Empty, Spinner, Stat } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -37,6 +38,10 @@ export default function AiConfidence() {
         title="AI Ishonch"
         description="Tizim baholarini o'qituvchi qanchalik tasdiqlaydi va qancha vaqt tejaladi"
       />
+      <HelpBanner id="ai-confidence">
+        💡 Bu yerda AI baholari bilan o'qituvchi qarori qanchalik <b>mos kelishini</b> ko'rasiz.
+        Yuqori «ishonch» darajalarida kelishuv ham yuqori bo'lsa — AI to'g'ri ishlayotgan bo'ladi.
+      </HelpBanner>
 
       {data.total_graded === 0 ? (
         <Card className="p-8">

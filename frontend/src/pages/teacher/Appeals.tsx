@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Scale } from 'lucide-react';
 
+import HelpBanner from '@/components/HelpBanner';
 import { PageHeader } from '@/components/Layout';
 import { useToast } from '@/components/Toast';
-import { Badge, Button, Card, Empty, Spinner } from '@/components/ui';
+import { Badge, Button, Card, EmptyState, Spinner } from '@/components/ui';
 import { api } from '@/lib/api';
 import type { Appeal } from '@/lib/types';
 
@@ -24,8 +26,12 @@ export default function Appeals() {
   return (
     <div className="max-w-3xl">
       <PageHeader title="E'tirozlar" description="O'quvchilarning bahoga e'tirozlarini ko'rib chiqing va javob bering" />
+      <HelpBanner id="appeals">
+        💡 O'quvchi bahosiga rozi bo'lmasa e'tiroz yuboradi. Bu yerda sababini o'qing, kerak bo'lsa
+        bahoni qayta ko'ring va <b>javob berib yoping</b>.
+      </HelpBanner>
       {appeals.length === 0 ? (
-        <Empty>Hozircha e'tiroz yo'q.</Empty>
+        <EmptyState icon={Scale} title="Hozircha e'tiroz yo'q" description="O'quvchilar baholariga rozi — e'tirozlar shu yerda paydo bo'ladi." />
       ) : (
         <>
           <div className="text-sm text-slate-500 mb-3">{open} ta ochiq · {appeals.length} ta jami</div>

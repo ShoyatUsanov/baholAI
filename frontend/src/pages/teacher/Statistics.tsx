@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
+import HelpBanner from '@/components/HelpBanner';
 import { PageHeader } from '@/components/Layout';
 import { Badge, Card, Empty, PercentBar, Spinner, Stat } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -49,6 +50,11 @@ export default function Statistics() {
         title="Statistika"
         description={subject ? `${subject.icon} ${subject.name} — o'quvchilar va vazifalar tahlili` : "O'quvchilar va vazifalar tahlili"}
       />
+
+      <HelpBanner id="statistics">
+        💡 <b>Vazifalar</b> tabida har bir vazifani kim bajardi/bajarmadi ko'rasiz;
+        <b> O'quvchilar</b> tabida esa har bir o'quvchining umumiy ko'rsatkichi.
+      </HelpBanner>
 
       <div className="flex gap-2 mb-5">
         <TabBtn active={tab === 'assignments'} onClick={() => setTab('assignments')}>

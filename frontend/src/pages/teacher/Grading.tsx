@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ShieldAlert, ShieldCheck } from 'lucide-react';
+import { GraduationCap, ShieldAlert, ShieldCheck } from 'lucide-react';
 
+import HelpBanner from '@/components/HelpBanner';
 import { useToast } from '@/components/Toast';
-import { AiBadge, Badge, Button, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
+import { AiBadge, Badge, Button, Card, ConfidenceBadge, EmptyState, InfoTooltip, PageHeader, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { GRADED_BY, HINTS } from '@/lib/labels';
 import type {
   Assignment,
   GradeBreakdown,
@@ -79,11 +81,22 @@ export default function Grading() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Baholash va feedback</h1>
-      <p className="text-slate-500 mb-4">O'quvchilarning javoblarini ko'ring va feedback yuboring</p>
+      <PageHeader
+        title="Baholash"
+        description={`${subject ? subject.name + ' · ' : ''}O'quvchilar javoblarini ko'ring, AI taklifini tasdiqlang yoki tahrirlang.`}
+      />
+      <HelpBanner id="grading">
+        💡 Maslahat: AI ochiq javoblarni baholaydi, siz <b>tasdiqlaysiz</b> yoki ballni <b>tahrirlaysiz</b>.
+        Faqat <b>o'zingiz</b> dars beradigan fan topshiriqlari ko'rinadi. Past ishonchli baholar
+        «Ko'rib chiqish kerak» deb belgilanadi.
+      </HelpBanner>
 
       {assignments.length === 0 ? (
-        <p className="text-slate-400 text-sm">Hali vazifa yaratmadingiz.</p>
+        <EmptyState
+          icon={GraduationCap}
+          title="Hali vazifa yaratmadingiz"
+          description="O'quvchilar javoblarini baholash uchun avval vazifa yarating."
+        />
       ) : (
         <>
           <div className="flex flex-wrap gap-2 mb-5">
@@ -241,12 +254,28 @@ function GradeRow({
         </div>
         <div className="flex items-center gap-2 text-sm flex-wrap justify-end">
           {lvl && <OriginalityChip level={lvl} open={origOpen} onClick={() => setOrigOpen((o) => !o)} />}
-          {g?.needs_review && <Badge color="amber">⚠️ Ko'rib chiqish</Badge>}
+          {g?.needs_review && (
+            <span className="inline-flex items-center gap-0.5">
+              <Badge color="amber">⚠️ Ko'rib chiqish</Badge>
+              <InfoTooltip text={HINTS.needs_review} />
+            </span>
+          )}
           <span className="font-semibold">{pct}%</span>
-          <Badge color="green">avto {g?.objective_score}</Badge>
-          <Badge color="violet">🤖 {g ? Math.round(g.total_score - g.objective_score) : 0}</Badge>
-          {g && <ConfidenceBadge value={g.confidence} />}
-          {g?.was_changed && <Badge color="slate" >✎ tuzatildi (AI: {g.ai_score})</Badge>}
+          <span className="inline-flex items-center gap-0.5">
+            <Badge color="green">avto {g?.objective_score}</Badge>
+            <InfoTooltip text={HINTS.objective_score} />
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Badge color="violet">🤖 {g ? Math.round(g.total_score - g.objective_score) : 0}</Badge>
+            <InfoTooltip text={HINTS.ai_score} />
+          </span>
+          {g && (
+            <span className="inline-flex items-center gap-0.5">
+              <ConfidenceBadge value={g.confidence} />
+              <InfoTooltip text={HINTS.confidence} />
+            </span>
+          )}
+          {g?.was_changed && <Badge color="slate">✎ tuzatildi (AI: {g.ai_score})</Badge>}
           {g && <AiBadge provider={g.ai_provider} />}
         </div>
       </div>
@@ -418,10 +447,11 @@ function AnswerRow({ b, idx, question }: { b: GradeBreakdown; idx: number; quest
         <div className="text-sm font-medium">
           {idx + 1}. {question?.prompt ?? `Savol ${b.question_id}`}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <Badge color={b.graded_by === 'ai' ? 'violet' : 'green'}>
-            {b.graded_by === 'ai' ? '🤖 AI' : 'avto'}
+            {b.graded_by === 'ai' ? '🤖 ' : ''}{GRADED_BY[b.graded_by]?.label ?? b.graded_by}
           </Badge>
+          <InfoTooltip text={GRADED_BY[b.graded_by]?.hint ?? ''} />
           <span className={`text-sm font-semibold ${b.score >= b.max ? 'text-green-600' : wrong ? 'text-red-600' : 'text-amber-600'}`}>
             {b.score}/{b.max}
           </span>

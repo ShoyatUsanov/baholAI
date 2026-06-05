@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarClock, XCircle } from 'lucide-react';
 
+import HelpBanner from '@/components/HelpBanner';
 import { PageHeader } from '@/components/Layout';
 import PlanBadge from '@/components/PlanBadge';
 import PricingCards from '@/components/PricingCards';
@@ -52,6 +53,10 @@ export default function Billing() {
   return (
     <div className="max-w-4xl">
       <PageHeader title="Obuna" description="Tarifingizni boshqaring va imkoniyatlarni oching" />
+      <HelpBanner id="billing">
+        💡 To'lov <b>demo (mock)</b> rejimida — tugma bossangiz tarif darhol faollashadi, haqiqiy pul
+        yechilmaydi. Istalgan vaqtda o'zgartiring yoki bekor qiling.
+      </HelpBanner>
 
       <Card className="p-5 mb-8">
         <div className="flex flex-wrap items-center gap-3">

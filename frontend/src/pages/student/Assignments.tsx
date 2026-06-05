@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import HelpBanner from '@/components/HelpBanner';
 import { Badge, Card } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -27,7 +28,12 @@ export default function Assignments() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold mb-5">Vazifalar</h1>
+      <h1 className="text-2xl font-bold mb-1">Vazifalar</h1>
+      <p className="text-slate-500 mb-4">O'qituvchi bergan topshiriqlarni bajaring va darhol baho oling.</p>
+      <HelpBanner id="student-assignments">
+        💡 Vazifani bosing → savollarga javob bering → <b>Topshirish</b>. Baho darhol chiqadi,
+        ochiq javoblarni AI baholaydi va o'qituvchi tasdiqlaydi.
+      </HelpBanner>
       <div className="space-y-3">
         {items.map((a) => {
           const subj = subjects[a.subject_id];

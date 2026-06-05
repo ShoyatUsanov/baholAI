@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Layers, ClipboardList, PenLine, Megaphone, TrendingUp } from 'lucide-react';
 
+import HelpBanner from '@/components/HelpBanner';
 import { Card, Badge } from '@/components/ui';
 import { PageHeader } from '@/components/Layout';
 import { api } from '@/lib/api';
@@ -30,6 +31,10 @@ export default function Home() {
   return (
     <div>
       <PageHeader title={`Salom, ${user?.name.split(' ')[0]}! 👋`} description="Bugun nimani o'rganamiz?" />
+      <HelpBanner id="student-home">
+        💡 Pastdagi bo'limlardan boshlang: <b>Vazifalar</b> — topshiriqlarni bajaring, <b>Fanlar</b> —
+        darslar va testlar, <b>Natijalarim</b> — baholaringiz va izohlar.
+      </HelpBanner>
 
       <Card className="mb-6 bg-gradient-to-br from-primary-600 to-fuchsia-700 text-white border-none">
         <div className="flex flex-wrap items-center justify-between gap-4">

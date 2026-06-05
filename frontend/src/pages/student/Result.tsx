@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import HelpBanner from '@/components/HelpBanner';
 import { useToast } from '@/components/Toast';
-import { AiBadge, Badge, Button, Card, ConfidenceBadge, PercentBar, RubricBreakdown } from '@/components/ui';
+import { AiBadge, Badge, Button, Card, ConfidenceBadge, InfoTooltip, PercentBar, RubricBreakdown } from '@/components/ui';
 import { api } from '@/lib/api';
+import { GRADED_BY, HINTS } from '@/lib/labels';
 import type { Appeal, AuditEntry, Feedback, Submission } from '@/lib/types';
 
 const AUDIT_LABEL: Record<AuditEntry['action'], string> = {
@@ -61,7 +63,12 @@ export default function Result() {
   return (
     <div className="max-w-2xl">
       <Link to="/student/assignments" className="text-sm text-slate-500 hover:text-indigo-600">← Vazifalar</Link>
-      <h1 className="text-2xl font-bold mt-2 mb-4">Natija</h1>
+      <h1 className="text-2xl font-bold mt-2 mb-3">Natija</h1>
+      <HelpBanner id="result">
+        💡 Har bir ball <b>nima uchun</b> qo'yilgani izohlangan. Variant savollar avtomatik,
+        ochiq javoblar AI tomonidan baholanadi va <b>o'qituvchi tasdiqlaydi</b>. Rozi bo'lmasangiz —
+        pastdan <b>e'tiroz</b> bildiring.
+      </HelpBanner>
 
       {g.status === 'pending' ? (
         <div className="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
@@ -84,7 +91,12 @@ export default function Result() {
         <div className="flex gap-4 mt-3 text-sm items-center flex-wrap">
           <span>✅ Obyektiv: <b>{g.objective_score}</b></span>
           <span>🤖 AI: <b>{Math.round(g.total_score - g.objective_score)}</b></span>
-          {typeof g.confidence === 'number' && g.rubric_breakdown?.length > 0 && <ConfidenceBadge value={g.confidence} />}
+          {typeof g.confidence === 'number' && g.rubric_breakdown?.length > 0 && (
+            <span className="inline-flex items-center gap-0.5">
+              <ConfidenceBadge value={g.confidence} />
+              <InfoTooltip text={HINTS.confidence} />
+            </span>
+          )}
           <AiBadge provider={g.ai_provider} />
         </div>
       </Card>
@@ -103,9 +115,12 @@ export default function Result() {
         {g.breakdown.map((b) => (
           <Card key={b.question_id} className="p-4">
             <div className="flex items-center justify-between mb-1">
-              <Badge color={b.graded_by === 'ai' ? 'violet' : 'green'}>
-                {b.graded_by === 'ai' ? '🤖 AI baho' : 'avto baho'}
-              </Badge>
+              <span className="inline-flex items-center gap-1">
+                <Badge color={b.graded_by === 'ai' ? 'violet' : 'green'}>
+                  {b.graded_by === 'ai' ? '🤖 ' : ''}{GRADED_BY[b.graded_by]?.label ?? b.graded_by}
+                </Badge>
+                <InfoTooltip text={GRADED_BY[b.graded_by]?.hint ?? ''} />
+              </span>
               <span className="text-sm font-semibold">{b.score} / {b.max}</span>
             </div>
             <div className="text-sm text-slate-600">Javobingiz: <i>{String(b.response ?? '—')}</i></div>

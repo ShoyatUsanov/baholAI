@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import HelpBanner from '@/components/HelpBanner';
 import { Badge, Card, PercentBar } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -40,6 +41,10 @@ export default function Assignments() {
           </Link>
         </div>
       </div>
+      <HelpBanner id="teacher-assignments">
+        💡 «<b>Yangi vazifa</b>» bilan topshiriq yarating (savol turlarini aralashtiring).
+        Har vazifa ostida nechta o'quvchi topshirgani va o'rtacha ball ko'rinadi.
+      </HelpBanner>
       <div className="space-y-3">
         {items.map((a) => {
           const method = methods[a.method];

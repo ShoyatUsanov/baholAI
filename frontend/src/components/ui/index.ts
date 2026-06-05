@@ -3,6 +3,9 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export { Input } from './Input';
 export { Avatar } from './Avatar';
+export { PageHeader } from './PageHeader';
+export { InfoTooltip } from './InfoTooltip';
+export { EmptyState } from './EmptyState';
 export {
   PercentBar,
   Stat,
